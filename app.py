@@ -5,12 +5,18 @@ Run with:  python app.py
 Then open:  http://localhost:5000
 """
 
+import json
+import logging
 import os
 import sys
 import threading
+import urllib.request
 from datetime import datetime
+from urllib.parse import quote as url_quote
 
 from flask import Flask, render_template, jsonify, request
+
+log = logging.getLogger(__name__)
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -45,6 +51,34 @@ GROUP_LABELS = {
 }
 
 
+# ---------------------------------------------------------------------------
+# SerpApi live account data (cached 5 minutes)
+# ---------------------------------------------------------------------------
+_serpapi_cache: dict = {"data": None, "fetched_at": None}
+_CACHE_TTL = 300  # seconds
+
+
+def get_serpapi_account() -> dict | None:
+    """Fetch live credit usage from SerpApi account endpoint. Cached for 5 min."""
+    now = datetime.now()
+    cached_at = _serpapi_cache["fetched_at"]
+    if cached_at is None or (now - cached_at).total_seconds() > _CACHE_TTL:
+        try:
+            url = f"https://serpapi.com/account.json?api_key={config.SERPAPI_KEY}"
+            with urllib.request.urlopen(url, timeout=5) as resp:
+                _serpapi_cache["data"] = json.loads(resp.read())
+                _serpapi_cache["fetched_at"] = now
+        except Exception as exc:
+            log.warning("Failed to fetch SerpApi account data: %s", exc)
+    return _serpapi_cache["data"]
+
+
+@app.template_global()
+def flights_url(origin: str, destination: str, depart_date: str, return_date: str) -> str:
+    query = f"Flights from {origin} to {destination} {depart_date} {return_date}"
+    return f"https://www.google.com/travel/flights/search?q={url_quote(query)}"
+
+
 def require_setup(f):
     from functools import wraps
     @wraps(f)
@@ -76,18 +110,31 @@ def dashboard():
 
         batch_cursor  = int(db.get_state(conn, "batch_cursor", "0"))
         next_dest     = SEARCH_PRIORITY[batch_cursor % len(SEARCH_PRIORITY)]
-        budget        = config.MONTHLY_BUDGET
-        monthly_usage = usage["total"]
-        budget_pct    = round(monthly_usage / budget * 100, 1) if budget else 0
 
     finally:
         conn.close()
+
+    account = get_serpapi_account()
+    if account:
+        monthly_usage = int(account.get("this_month_usage", usage["total"]))
+        budget        = int(account.get("plan_monthly_searches", config.MONTHLY_BUDGET))
+        plan_name     = account.get("plan_name", "")
+        credits_source = "Live from SerpApi"
+    else:
+        monthly_usage = usage["total"]
+        budget        = config.MONTHLY_BUDGET
+        plan_name     = ""
+        credits_source = "Local estimate"
+
+    budget_pct = round(monthly_usage / budget * 100, 1) if budget else 0
 
     return render_template(
         "dashboard.html",
         monthly_usage=monthly_usage,
         budget=budget,
         budget_pct=budget_pct,
+        plan_name=plan_name,
+        credits_source=credits_source,
         monthly_deals=monthly_deals,
         total_observations=total_obs,
         recent_alerts=recent_alerts,
@@ -196,18 +243,30 @@ def alerts():
 def api_status():
     conn = db.get_connection()
     try:
-        usage     = db.get_monthly_usage(conn)
         last_scan = db.get_last_scan_time(conn)
+        local_used = db.get_monthly_usage(conn)["total"]
     finally:
         conn.close()
 
-    budget = config.MONTHLY_BUDGET
-    used   = usage["total"]
+    account = get_serpapi_account()
+    if account:
+        used   = int(account.get("this_month_usage", local_used))
+        budget = int(account.get("plan_monthly_searches", config.MONTHLY_BUDGET))
+        plan   = account.get("plan_name", "Unknown")
+        source = "serpapi"
+    else:
+        used   = local_used
+        budget = config.MONTHLY_BUDGET
+        plan   = None
+        source = "local"
+
     return jsonify({
         "monthly_usage": used,
         "budget":        budget,
         "remaining":     budget - used,
         "pct_used":      round(used / budget * 100, 1) if budget else 0,
+        "plan":          plan,
+        "source":        source,
         "last_scan":     last_scan,
         "timestamp":     datetime.now().isoformat(),
     })

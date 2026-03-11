@@ -60,8 +60,9 @@
     .then(r => r.json())
     .then(d => {
       const cls = d.pct_used > 90 ? 'danger' : d.pct_used > 70 ? 'warning' : 'success';
+      const src = d.source === 'serpapi' ? '✓' : '~';
       document.getElementById('budgetBadge').innerHTML =
-        `<span class="badge bg-${cls}"><i class="bi bi-lightning-charge-fill me-1"></i>${d.monthly_usage} / ${d.budget} credits</span>`;
+        `<span class="badge bg-${cls}" title="${d.source === 'serpapi' ? 'Live from SerpApi' : 'Local estimate'}"><i class="bi bi-lightning-charge-fill me-1"></i>${src} ${d.monthly_usage} / ${d.budget} credits</span>`;
     })
     .catch(() => {
       document.getElementById('budgetBadge').innerHTML = '';

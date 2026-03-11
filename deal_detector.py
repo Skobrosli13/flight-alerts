@@ -14,11 +14,16 @@ Algorithm:
 
 import logging
 import sqlite3
+from datetime import datetime
 from typing import Optional
 
 import config
 import database as db
-from destinations import get_destination_name
+from destinations import get_destination_name, DOMESTIC_DESTINATIONS
+
+EAST_COAST_DESTINATIONS = {"MIA", "MCO", "JFK", "BOS"}
+WEEKEND_DEPART_DAYS = {3, 4}   # Thursday=3, Friday=4
+WEEKEND_RETURN_DAYS = {6, 0}   # Sunday=6, Monday=0
 
 log = logging.getLogger(__name__)
 
@@ -75,8 +80,29 @@ def evaluate_search_results(
         )
         return None
 
-    # --- Step 4: find the best (cheapest, fewest stops preferred) price ---
-    best = min(prices, key=lambda p: (p["price"], p["stops"]))
+    # --- Step 3b: east coast weekend-only guard ---
+    if destination in EAST_COAST_DESTINATIONS:
+        depart_dow = datetime.fromisoformat(departure_date).weekday()
+        return_dow = datetime.fromisoformat(return_date).weekday()
+        if depart_dow not in WEEKEND_DEPART_DAYS or return_dow not in WEEKEND_RETURN_DAYS:
+            log.debug(
+                "%s→%s %s: non-weekend dates (depart dow=%d, return dow=%d) — skipping east coast deal check",
+                origin, destination, departure_date, depart_dow, return_dow,
+            )
+            return None
+
+    # --- Step 4: find the best price ---
+    # Domestic routes: nonstop only. International: nonstop preferred, 1-stop allowed.
+    if destination in DOMESTIC_DESTINATIONS:
+        candidate_prices = [p for p in prices if p["stops"] == 0]
+        if not candidate_prices:
+            log.debug("%s→%s %s: no nonstop flights — skipping domestic deal check",
+                      origin, destination, departure_date)
+            return None
+    else:
+        candidate_prices = prices
+
+    best = min(candidate_prices, key=lambda p: (p["price"], p["stops"]))
     current_price = best["price"]
     mean = stats["mean"]
     std = stats["std"]

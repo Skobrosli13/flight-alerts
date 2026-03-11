@@ -20,7 +20,8 @@
           <th>Hist Avg</th>
           <th>Savings</th>
           <th>Recipient</th>
-          <th class="pe-3">Sent At</th>
+          <th>Sent At</th>
+          <th class="pe-3"></th>
         </tr>
       </thead>
       <tbody>
@@ -40,14 +41,20 @@
           <td class="text-muted">${{ "%.0f"|format(a.historical_avg) }}</td>
           <td>
             <span class="badge bg-success">
-              <i class="bi bi-arrow-down me-1"></i>{{ "%.0f"|format(a.pct_below_avg * 100) }}% off
+              <i class="bi bi-arrow-down me-1"></i>{{ "%.0f"|format(a.pct_below_avg) }}% off
             </span>
             <div class="text-muted small mt-1">
               save ${{ "%.0f"|format(a.historical_avg - a.alerted_price) }}
             </div>
           </td>
           <td class="text-muted small">{{ a.email_recipient }}</td>
-          <td class="pe-3 text-muted small">{{ a.sent_at[:16].replace('T',' ') }} UTC</td>
+          <td class="text-muted small">{{ a.sent_at[:16].replace('T',' ') }} UTC</td>
+          <td class="pe-3">
+            <a href="{{ flights_url(a.origin, a.destination, a.departure_date, a.return_date) }}"
+               target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-search me-1"></i>Search
+            </a>
+          </td>
         </tr>
         {% endfor %}
       </tbody>

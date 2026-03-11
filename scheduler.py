@@ -19,6 +19,7 @@ import database as db
 import deal_detector
 import notifier
 import searcher
+from destinations import DOMESTIC_DESTINATIONS, EUROPE_CARIBBEAN_DESTINATIONS
 from utils import dates_for_window
 
 log = logging.getLogger(__name__)
@@ -60,7 +61,13 @@ def search_job(dry_run: bool = False) -> None:
         smtp_conn: smtplib.SMTP_SSL | None = None
 
         for destination in destinations:
-            for window in config.DATE_WINDOWS:
+            if destination in DOMESTIC_DESTINATIONS:
+                windows = config.DOMESTIC_DATE_WINDOWS
+            elif destination in EUROPE_CARIBBEAN_DESTINATIONS:
+                windows = config.EUROPE_CARIBBEAN_DATE_WINDOWS
+            else:
+                windows = config.MIDDLE_EAST_ASIA_DATE_WINDOWS
+            for window in windows:
                 departure_date, return_date = dates_for_window(
                     window["offset_weeks"], window["stay_nights"]
                 )

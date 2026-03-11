@@ -75,6 +75,17 @@ SEARCH_PRIORITY: list[str] = (
 
 assert len(SEARCH_PRIORITY) == len(set(SEARCH_PRIORITY)), "Duplicate destinations found"
 
+DOMESTIC_DESTINATIONS: set[str] = set(DESTINATIONS["domestic_tier1"])
+EUROPE_CARIBBEAN_DESTINATIONS: set[str] = set(
+    DESTINATIONS["europe_tier1"]
+    + DESTINATIONS["europe_tier2"]
+    + DESTINATIONS["caribbean_mexico"]
+)
+MIDDLE_EAST_ASIA_DESTINATIONS: set[str] = set(
+    DESTINATIONS["middle_east"]
+    + DESTINATIONS["asia_pacific"]
+)
+
 
 def get_destination_name(iata: str) -> str:
     return AIRPORT_NAMES.get(iata, iata)

@@ -27,6 +27,8 @@ log = logging.getLogger(__name__)
 DEST_PER_JOB = 1          # destinations per scheduler run (3 origins × 2 windows = 6 calls)
 POLITE_DELAY = (1.5, 3.0) # seconds to sleep between API calls
 
+BLOCKED_AIRLINES = {"Spirit Airlines", "Frontier Airlines"}
+
 # Path to the fixture file used in dry-run / test mode
 FIXTURE_PATH = Path(__file__).parent / "tests" / "fixtures" / "sample_serpapi_response.json"
 
@@ -128,8 +130,16 @@ def extract_prices(response: dict) -> list[dict]:
             legs = flight.get("flights", [])
             airline = legs[0].get("airline", "Unknown") if legs else "Unknown"
 
+            if airline in BLOCKED_AIRLINES:
+                log.debug("Skipping blocked airline: %s", airline)
+                continue
+
             # Stops = number of layovers
             stops = len(flight.get("layovers", []))
+
+            if stops >= 2:
+                log.debug("Skipping flight with %d layovers", stops)
+                continue
 
             # Total duration in minutes (sum of all legs + layovers)
             duration = sum(

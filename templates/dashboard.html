@@ -16,7 +16,8 @@
       <div class="card-body">
         <div class="stat-label"><i class="bi bi-lightning-charge text-warning me-1"></i>Credits Used</div>
         <div class="stat-value">{{ monthly_usage }}</div>
-        <div class="stat-sub text-muted">of {{ budget }} this month</div>
+        <div class="stat-sub text-muted">of {{ budget }} this month{% if plan_name %} · {{ plan_name }}{% endif %}</div>
+        <div class="mt-1"><span class="badge bg-secondary small">{{ credits_source }}</span></div>
       </div>
     </div>
   </div>
@@ -131,6 +132,7 @@
             <th>Avg</th>
             <th>Savings</th>
             <th>Sent</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -144,8 +146,14 @@
             <td class="text-muted small">{{ a.departure_date }} – {{ a.return_date }}</td>
             <td class="text-success fw-bold">${{ "%.0f"|format(a.alerted_price) }}</td>
             <td class="text-muted">${{ "%.0f"|format(a.historical_avg) }}</td>
-            <td><span class="badge bg-success">{{ "%.0f"|format(a.pct_below_avg * 100) }}% off</span></td>
+            <td><span class="badge bg-success">{{ "%.0f"|format(a.pct_below_avg) }}% off</span></td>
             <td class="text-muted small">{{ a.sent_at[:16].replace('T',' ') }}</td>
+            <td>
+              <a href="{{ flights_url(a.origin, a.destination, a.departure_date, a.return_date) }}"
+                 target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-search me-1"></i>Search
+              </a>
+            </td>
           </tr>
           {% endfor %}
         </tbody>

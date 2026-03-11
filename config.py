@@ -54,13 +54,21 @@ STATS_DATE_WINDOW = int(os.getenv("STATS_DATE_WINDOW", "14"))        # ±days fo
 STATS_LOOKBACK_DAYS = int(os.getenv("STATS_LOOKBACK_DAYS", "90"))
 
 # ---------------------------------------------------------------------------
-# Search windows: (weeks_from_today, stay_nights)
-# Two windows to stay within 1,000-search/month Starter plan budget.
-# Upgrade to 4 windows on a higher plan by adding entries here.
+# Search windows: split by destination type.
+# Domestic routes book near-term; international requires advance planning.
+# Both sets use 2 windows → 6 credits/run unchanged (720/month).
 # ---------------------------------------------------------------------------
-DATE_WINDOWS = [
-    {"offset_weeks": 4,  "stay_nights": 7},
-    {"offset_weeks": 10, "stay_nights": 10},
+DOMESTIC_DATE_WINDOWS = [
+    {"offset_weeks": 2,  "stay_nights": 4},   # ~2 weeks out, long weekend
+    {"offset_weeks": 6,  "stay_nights": 7},   # ~6 weeks out, week trip
+]
+EUROPE_CARIBBEAN_DATE_WINDOWS = [
+    {"offset_weeks": 14, "stay_nights": 7},   # ~3.5 months out, 1-week trip
+    {"offset_weeks": 30, "stay_nights": 7},   # ~7 months out, 1-week trip
+]
+MIDDLE_EAST_ASIA_DATE_WINDOWS = [
+    {"offset_weeks": 14, "stay_nights": 10},  # ~3.5 months out, 10-night trip
+    {"offset_weeks": 30, "stay_nights": 14},  # ~7 months out, 2-week trip
 ]
 
 # ---------------------------------------------------------------------------

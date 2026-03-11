@@ -4,7 +4,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h4 class="mb-0 fw-semibold"><i class="bi bi-geo-alt me-2 text-primary"></i>Destinations</h4>
-  <span class="badge bg-secondary fs-6">{{ destinations.values()|sum(attribute='__len__') }} total</span>
+  <span class="badge bg-secondary fs-6">{{ destinations.values()|map('length')|sum }} total</span>
 </div>
 
 {% for group_key, codes in destinations.items() %}
