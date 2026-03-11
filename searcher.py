@@ -1,0 +1,197 @@
+"""
+SerpApi (Google Flights) wrapper with batch rotation and rate limiting.
+
+Rotation strategy:
+  - Destinations are divided into batches of DEST_PER_JOB (default 1).
+  - Each 6-hour scheduler run processes one batch × all 3 origins × 2 date windows.
+  - A persistent cursor in scheduler_state advances after each run.
+  - This keeps monthly API usage within the 1,000-credit Starter plan (~6 searches/job).
+"""
+
+import json
+import logging
+import os
+import time
+import random
+import sqlite3
+from pathlib import Path
+from typing import Optional
+
+import config
+import database as db
+from destinations import SEARCH_PRIORITY
+from utils import dates_for_window, retry
+
+log = logging.getLogger(__name__)
+
+DEST_PER_JOB = 1          # destinations per scheduler run (3 origins × 2 windows = 6 calls)
+POLITE_DELAY = (1.5, 3.0) # seconds to sleep between API calls
+
+# Path to the fixture file used in dry-run / test mode
+FIXTURE_PATH = Path(__file__).parent / "tests" / "fixtures" / "sample_serpapi_response.json"
+
+
+# ---------------------------------------------------------------------------
+# SerpApi call
+# ---------------------------------------------------------------------------
+
+def _load_fixture() -> dict:
+    if FIXTURE_PATH.exists():
+        with open(FIXTURE_PATH, encoding="utf-8") as fh:
+            return json.load(fh)
+    # Minimal stub so tests pass even without a captured fixture
+    return {
+        "best_flights": [
+            {"price": 450, "flights": [{"airline": "Sample Airline"}], "layovers": []},
+            {"price": 520, "flights": [{"airline": "Sample Airline"}], "layovers": [{"duration": 60}]},
+        ],
+        "other_flights": [],
+    }
+
+
+@retry(max_attempts=3, base_delay=10.0, jitter=5.0)
+def _call_serpapi(params: dict) -> dict:
+    from serpapi import GoogleSearch  # type: ignore
+    result = GoogleSearch(params).get_dict()
+    time.sleep(random.uniform(*POLITE_DELAY))
+    return result
+
+
+def execute_search(
+    origin: str,
+    destination: str,
+    departure_date: str,
+    return_date: str,
+    dry_run: bool = False,
+) -> Optional[dict]:
+    """
+    Execute a single round-trip search via SerpApi.
+    Returns the raw response dict, or None on failure.
+    In dry_run mode, returns fixture data without hitting the API.
+    """
+    if dry_run:
+        log.debug("DRY RUN: %s→%s %s/%s", origin, destination, departure_date, return_date)
+        return _load_fixture()
+
+    params = {
+        "engine":          "google_flights",
+        "departure_id":    origin,
+        "arrival_id":      destination,
+        "outbound_date":   departure_date,
+        "return_date":     return_date,
+        "currency":        "USD",
+        "hl":              "en",
+        "gl":              "us",
+        "type":            "1",        # 1 = round-trip
+        "api_key":         config.SERPAPI_KEY,
+    }
+
+    log.debug("Searching %s→%s %s/%s", origin, destination, departure_date, return_date)
+    result = _call_serpapi(params)
+
+    # DCA fallback: retry with WAS (Washington metro code) if no results
+    if origin == "DCA" and result and not _has_flights(result):
+        log.debug("DCA returned no results — retrying with WAS")
+        params["departure_id"] = "WAS"
+        result = _call_serpapi(params)
+
+    return result
+
+
+def _has_flights(response: dict) -> bool:
+    return bool(response.get("best_flights") or response.get("other_flights"))
+
+
+# ---------------------------------------------------------------------------
+# Price extraction
+# ---------------------------------------------------------------------------
+
+def extract_prices(response: dict) -> list[dict]:
+    """
+    Parse SerpApi Google Flights response into a flat list of price records.
+    Each record: {price, airline, stops, duration_minutes}
+    Returns [] gracefully if response is malformed or has no results.
+    """
+    if not response:
+        return []
+
+    results = []
+    all_flights = response.get("best_flights", []) + response.get("other_flights", [])
+
+    for flight in all_flights:
+        try:
+            price = flight.get("price")
+            if price is None:
+                continue
+
+            # Airline: first leg's airline name
+            legs = flight.get("flights", [])
+            airline = legs[0].get("airline", "Unknown") if legs else "Unknown"
+
+            # Stops = number of layovers
+            stops = len(flight.get("layovers", []))
+
+            # Total duration in minutes (sum of all legs + layovers)
+            duration = sum(
+                leg.get("duration", 0) for leg in legs
+            ) + sum(
+                lay.get("duration", 0) for lay in flight.get("layovers", [])
+            )
+
+            results.append({
+                "price":             float(price),
+                "airline":           airline,
+                "stops":             stops,
+                "duration_minutes":  duration,
+            })
+        except (KeyError, TypeError, ValueError) as exc:
+            log.debug("Skipping malformed flight entry: %s", exc)
+            continue
+
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Batch rotation
+# ---------------------------------------------------------------------------
+
+def get_next_batch(conn: sqlite3.Connection) -> list[str]:
+    """
+    Return the next DEST_PER_JOB destinations from the rotation list.
+    Reads and advances the persistent cursor in scheduler_state.
+    """
+    cursor = int(db.get_state(conn, "batch_cursor", "0"))
+    total = len(SEARCH_PRIORITY)
+
+    batch = []
+    for i in range(DEST_PER_JOB):
+        batch.append(SEARCH_PRIORITY[(cursor + i) % total])
+
+    next_cursor = (cursor + DEST_PER_JOB) % total
+    db.set_state(conn, "batch_cursor", str(next_cursor))
+
+    log.info(
+        "Batch cursor %d→%d | destinations: %s",
+        cursor, next_cursor, ", ".join(batch),
+    )
+    return batch
+
+
+# ---------------------------------------------------------------------------
+# Budget check
+# ---------------------------------------------------------------------------
+
+def is_within_budget(conn: sqlite3.Connection) -> bool:
+    used = db.get_monthly_search_count(conn)
+    within = used < config.MONTHLY_BUDGET
+    if not within:
+        log.warning(
+            "Monthly API budget ceiling reached (%d/%d). Skipping job run.",
+            used, config.MONTHLY_BUDGET,
+        )
+    elif used >= config.MONTHLY_BUDGET * 0.80:
+        log.warning(
+            "API usage at %.0f%% of monthly budget (%d/%d searches).",
+            100 * used / config.MONTHLY_BUDGET, used, config.MONTHLY_BUDGET,
+        )
+    return within

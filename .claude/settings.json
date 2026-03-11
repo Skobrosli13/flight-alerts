@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python main.py)",
+      "Bash(python app.py)",
+      "Bash(netstat -ano)",
+      "Bash(findstr \":5000\")",
+      "Bash(taskkill /PID 21272 /F)",
+      "Bash(cmd /c \"taskkill /PID 21272 /F\")",
+      "Bash(cmd /c \"taskkill /PID 21272 /F 2>&1\")",
+      "Bash(cmd /c taskkill /PID 21272 /F)",
+      "Bash(powershell -Command \"Stop-Process -Id 21272 -Force; Write-Host ''done''\")",
+      "Bash(findstr \"LISTENING\")"
+    ]
+  }
+}

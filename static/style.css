@@ -1,0 +1,224 @@
+/* ---------------------------------------------------------------
+   DC Flight Alerts — Dark monitoring dashboard theme
+   Extends Bootstrap 5.3 dark mode
+--------------------------------------------------------------- */
+
+body {
+  background-color: #0d1117;
+  color: #e6edf3;
+  font-size: 0.9rem;
+}
+
+/* Navbar */
+.navbar {
+  background-color: #161b22 !important;
+  border-color: #30363d !important;
+}
+
+.navbar-brand {
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+}
+
+.nav-link {
+  color: #8b949e !important;
+  font-size: 0.875rem;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  color: #e6edf3 !important;
+}
+
+.nav-link.active {
+  font-weight: 600;
+}
+
+/* Cards */
+.card {
+  background-color: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+}
+
+.card-header {
+  background-color: #1c2128;
+  border-bottom-color: #30363d;
+  padding: 0.75rem 1rem;
+}
+
+/* Stat cards */
+.stat-card {
+  border-left: 3px solid #2f81f7;
+}
+
+.stat-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8b949e;
+  margin-bottom: 0.4rem;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 0.25rem;
+}
+
+.stat-sub {
+  font-size: 0.8rem;
+}
+
+/* Tables */
+.table {
+  color: #e6edf3;
+  --bs-table-hover-bg: rgba(255, 255, 255, 0.04);
+  --bs-table-hover-color: #e6edf3;
+}
+
+.table th {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8b949e;
+  border-bottom-color: #30363d;
+  padding-top: 0.65rem;
+  padding-bottom: 0.65rem;
+}
+
+.table td {
+  border-color: #21262d;
+  vertical-align: middle;
+}
+
+.table-sm td,
+.table-sm th {
+  padding: 0.45rem 0.6rem;
+}
+
+/* Sticky table header */
+.sticky-top {
+  top: 0;
+  z-index: 1;
+  background-color: #161b22 !important;
+}
+
+/* Form controls */
+.form-select,
+.form-control {
+  background-color: #1c2128;
+  border-color: #30363d;
+  color: #e6edf3;
+  font-size: 0.875rem;
+}
+
+.form-select:focus,
+.form-control:focus {
+  background-color: #1c2128;
+  border-color: #2f81f7;
+  color: #e6edf3;
+  box-shadow: 0 0 0 3px rgba(47, 129, 247, 0.2);
+}
+
+.form-select option {
+  background-color: #1c2128;
+  color: #e6edf3;
+}
+
+.form-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8b949e;
+  margin-bottom: 0.35rem;
+}
+
+/* Progress bar */
+.progress {
+  background-color: #21262d;
+}
+
+/* Badges */
+.badge.bg-secondary {
+  background-color: #30363d !important;
+  color: #e6edf3;
+}
+
+/* Buttons */
+.btn-outline-secondary {
+  border-color: #30363d;
+  color: #8b949e;
+}
+
+.btn-outline-secondary:hover {
+  background-color: #30363d;
+  color: #e6edf3;
+  border-color: #30363d;
+}
+
+/* Alert overrides */
+.alert-info {
+  background-color: rgba(47, 129, 247, 0.1);
+  border-color: #2f81f7;
+  color: #e6edf3;
+}
+
+/* Toast */
+.toast {
+  background-color: #161b22;
+  border-color: #30363d;
+}
+
+.toast-header {
+  background-color: #1c2128;
+  border-bottom-color: #30363d;
+  color: #e6edf3;
+}
+
+.toast-body {
+  color: #e6edf3;
+}
+
+/* Code */
+code {
+  color: #79c0ff;
+  background-color: rgba(110, 118, 129, 0.1);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  font-size: 0.875em;
+}
+
+pre code {
+  background: transparent;
+  padding: 0;
+}
+
+pre {
+  background-color: #1c2128;
+  border: 1px solid #30363d;
+  color: #e6edf3;
+  font-size: 0.85rem;
+}
+
+/* Spinner animation */
+.spin {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Font-monospace badges */
+.font-monospace {
+  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+}

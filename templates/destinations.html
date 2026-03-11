@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Destinations{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="mb-0 fw-semibold"><i class="bi bi-geo-alt me-2 text-primary"></i>Destinations</h4>
+  <span class="badge bg-secondary fs-6">{{ destinations.values()|sum(attribute='__len__') }} total</span>
+</div>
+
+{% for group_key, codes in destinations.items() %}
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span class="fw-semibold">{{ group_labels.get(group_key, group_key) }}</span>
+    <span class="badge bg-secondary">{{ codes|length }}</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover table-sm align-middle mb-0">
+      <thead class="text-muted small">
+        <tr>
+          <th class="ps-3" style="width:80px">Code</th>
+          <th>City</th>
+          <th>Observations</th>
+          <th>Avg Price</th>
+          <th>Best Price</th>
+          <th>Last Scanned</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for code in codes %}
+        {% set s = dest_stats.get(code, {}) %}
+        <tr>
+          <td class="ps-3">
+            <span class="badge bg-primary font-monospace">{{ code }}</span>
+          </td>
+          <td class="fw-medium">{{ airport_names.get(code, code) }}</td>
+          <td>
+            {% if s %}
+              {% if s.obs_count >= min_observations %}
+                <span class="text-success">
+                  <i class="bi bi-check-circle-fill me-1"></i>{{ s.obs_count }}
+                </span>
+              {% else %}
+                <span class="text-warning">
+                  <i class="bi bi-hourglass-split me-1"></i>{{ s.obs_count }}
+                  <span class="text-muted small">(need {{ min_observations - s.obs_count }} more)</span>
+                </span>
+              {% endif %}
+            {% else %}
+              <span class="text-danger"><i class="bi bi-x-circle me-1"></i>No data</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if s.avg_price %}<span class="fw-medium">${{ "%.0f"|format(s.avg_price) }}</span>{% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td>
+            {% if s.min_price %}<span class="text-success fw-bold">${{ "%.0f"|format(s.min_price) }}</span>{% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td class="text-muted small">
+            {{ s.last_seen[:10] if s.last_seen else '—' }}
+          </td>
+          <td class="pe-3">
+            <a href="/history?dest={{ code }}" class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-graph-up me-1"></i>History
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

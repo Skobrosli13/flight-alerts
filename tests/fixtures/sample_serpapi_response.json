@@ -1,0 +1,96 @@
+{
+  "_comment": "Placeholder fixture. Capture a real response by running: python scripts/capture_fixture.py",
+  "best_flights": [
+    {
+      "flights": [
+        {
+          "departure_airport": {"name": "Washington Dulles International Airport", "id": "IAD", "time": "2026-06-13 17:45"},
+          "arrival_airport":   {"name": "Charles de Gaulle Airport",              "id": "CDG", "time": "2026-06-14 07:15"},
+          "duration": 390,
+          "airplane": "Boeing 777",
+          "airline": "Air France",
+          "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/AF.png",
+          "travel_class": "Economy",
+          "flight_number": "AF 628",
+          "extensions": ["Average legroom (31 in)", "Wi-Fi for a fee", "Below average emissions estimate"],
+          "overnight": true,
+          "often_delayed_by_over_30_min": false
+        }
+      ],
+      "layovers": [],
+      "total_duration": 390,
+      "carbon_emissions": {"this_flight": 234000, "typical_for_this_route": 340000, "difference_percent": -31},
+      "price": 387,
+      "type": "Round trip",
+      "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/AF.png",
+      "departure_token": "sample_token_1"
+    },
+    {
+      "flights": [
+        {
+          "departure_airport": {"name": "Washington Dulles International Airport", "id": "IAD", "time": "2026-06-13 10:00"},
+          "arrival_airport":   {"name": "London Heathrow Airport",                 "id": "LHR", "time": "2026-06-13 22:00"},
+          "duration": 420,
+          "airline": "British Airways",
+          "travel_class": "Economy",
+          "flight_number": "BA 217"
+        },
+        {
+          "departure_airport": {"name": "London Heathrow Airport", "id": "LHR", "time": "2026-06-14 08:00"},
+          "arrival_airport":   {"name": "Charles de Gaulle Airport", "id": "CDG", "time": "2026-06-14 10:15"},
+          "duration": 75,
+          "airline": "British Airways",
+          "travel_class": "Economy",
+          "flight_number": "BA 304"
+        }
+      ],
+      "layovers": [{"duration": 600, "name": "London Heathrow Airport", "id": "LHR"}],
+      "total_duration": 1095,
+      "price": 521,
+      "type": "Round trip",
+      "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/BA.png",
+      "departure_token": "sample_token_2"
+    }
+  ],
+  "other_flights": [
+    {
+      "flights": [
+        {
+          "departure_airport": {"name": "Washington Dulles International Airport", "id": "IAD", "time": "2026-06-13 14:30"},
+          "arrival_airport":   {"name": "Charles de Gaulle Airport", "id": "CDG", "time": "2026-06-14 06:00"},
+          "duration": 390,
+          "airline": "United Airlines",
+          "travel_class": "Economy",
+          "flight_number": "UA 990"
+        }
+      ],
+      "layovers": [],
+      "total_duration": 390,
+      "price": 612,
+      "type": "Round trip",
+      "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/UA.png",
+      "departure_token": "sample_token_3"
+    }
+  ],
+  "search_metadata": {
+    "id": "sample_search_id",
+    "status": "Success",
+    "json_endpoint": "https://serpapi.com/searches/sample",
+    "created_at": "2026-03-10 14:32:00 UTC",
+    "processed_at": "2026-03-10 14:32:01 UTC",
+    "google_flights_url": "https://www.google.com/travel/flights",
+    "raw_html_file": "https://serpapi.com/searches/sample.html",
+    "total_time_taken": 1.23
+  },
+  "search_parameters": {
+    "engine": "google_flights",
+    "departure_id": "IAD",
+    "arrival_id": "CDG",
+    "outbound_date": "2026-06-13",
+    "return_date": "2026-06-23",
+    "currency": "USD",
+    "hl": "en",
+    "gl": "us",
+    "type": "1"
+  }
+}

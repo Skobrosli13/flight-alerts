@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="mb-0 fw-semibold"><i class="bi bi-speedometer2 me-2 text-primary"></i>Dashboard</h4>
+  <button class="btn btn-primary btn-sm" onclick="triggerJob()">
+    <i class="bi bi-play-fill me-1"></i>Run Scan Now
+  </button>
+</div>
+
+<!-- Stat Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card stat-card h-100">
+      <div class="card-body">
+        <div class="stat-label"><i class="bi bi-lightning-charge text-warning me-1"></i>Credits Used</div>
+        <div class="stat-value">{{ monthly_usage }}</div>
+        <div class="stat-sub text-muted">of {{ budget }} this month</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card stat-card h-100">
+      <div class="card-body">
+        <div class="stat-label"><i class="bi bi-percent text-info me-1"></i>Budget Used</div>
+        <div class="stat-value {% if budget_pct > 90 %}text-danger{% elif budget_pct > 70 %}text-warning{% else %}text-success{% endif %}">
+          {{ budget_pct }}%
+        </div>
+        <div class="stat-sub text-muted">{{ budget - monthly_usage }} remaining</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card stat-card h-100">
+      <div class="card-body">
+        <div class="stat-label"><i class="bi bi-tag-fill text-success me-1"></i>Deals Found</div>
+        <div class="stat-value">{{ monthly_deals }}</div>
+        <div class="stat-sub text-muted">this month</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card stat-card h-100">
+      <div class="card-body">
+        <div class="stat-label"><i class="bi bi-database text-primary me-1"></i>Observations</div>
+        <div class="stat-value">{{ total_observations }}</div>
+        <div class="stat-sub text-muted">price records</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Budget Bar + Scan Queue -->
+<div class="row g-3 mb-4">
+  <div class="col-md-8">
+    <div class="card h-100">
+      <div class="card-body">
+        <h6 class="card-title text-muted text-uppercase small mb-3">Monthly API Budget</h6>
+        <div class="d-flex justify-content-between small text-muted mb-1">
+          <span>0 credits</span>
+          <span>{{ budget }} credits</span>
+        </div>
+        <div class="progress mb-3" style="height:18px">
+          <div class="progress-bar {% if budget_pct > 90 %}bg-danger{% elif budget_pct > 70 %}bg-warning{% else %}bg-success{% endif %}"
+               style="width:{{ [budget_pct, 100]|min }}%" role="progressbar">
+            {{ budget_pct }}%
+          </div>
+        </div>
+        <div class="row g-2 mt-1">
+          <div class="col-12">
+            <p class="text-muted small mb-2">Usage by origin this month:</p>
+            <div class="d-flex gap-3 flex-wrap">
+              {% for origin in ['IAD', 'DCA', 'BWI'] %}
+              <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-primary">{{ origin }}</span>
+                <span class="fw-semibold">{{ origin_usage.get(origin, 0) }}</span>
+                <span class="text-muted small">credits</span>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% if last_scan %}
+        <p class="text-muted small mb-0 mt-3">
+          <i class="bi bi-clock me-1"></i>Last scan: {{ last_scan[:16].replace('T',' ') }} UTC
+        </p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-body text-center">
+        <h6 class="card-title text-muted text-uppercase small mb-3">Scan Queue</h6>
+        <div class="display-5 fw-bold text-primary mb-1">{{ next_destination }}</div>
+        <div class="text-muted mb-3">{{ next_dest_name }}</div>
+        <div class="progress mb-2" style="height:6px">
+          <div class="progress-bar bg-primary"
+               style="width:{{ ((batch_cursor % total_destinations) / total_destinations * 100)|round(1) }}%">
+          </div>
+        </div>
+        <div class="text-muted small">
+          Position {{ (batch_cursor % total_destinations) + 1 }} of {{ total_destinations }}
+        </div>
+        <div class="text-muted small mt-2">
+          <i class="bi bi-map me-1"></i>{{ dests_scanned }} / {{ total_destinations }} scanned this month
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Alerts -->
+<div class="card">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h6 class="card-title text-muted text-uppercase small mb-0">Recent Alerts</h6>
+      <a href="/alerts" class="btn btn-outline-secondary btn-sm">View All</a>
+    </div>
+
+    {% if recent_alerts %}
+    <div class="table-responsive">
+      <table class="table table-hover table-sm align-middle mb-0">
+        <thead class="text-muted small">
+          <tr>
+            <th>Route</th>
+            <th>Travel Dates</th>
+            <th>Price</th>
+            <th>Avg</th>
+            <th>Savings</th>
+            <th>Sent</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in recent_alerts %}
+          <tr>
+            <td>
+              <span class="badge bg-secondary me-1">{{ a.origin }}</span>
+              <i class="bi bi-arrow-right text-muted"></i>
+              <span class="badge bg-secondary ms-1">{{ a.destination }}</span>
+            </td>
+            <td class="text-muted small">{{ a.departure_date }} – {{ a.return_date }}</td>
+            <td class="text-success fw-bold">${{ "%.0f"|format(a.alerted_price) }}</td>
+            <td class="text-muted">${{ "%.0f"|format(a.historical_avg) }}</td>
+            <td><span class="badge bg-success">{{ "%.0f"|format(a.pct_below_avg * 100) }}% off</span></td>
+            <td class="text-muted small">{{ a.sent_at[:16].replace('T',' ') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-4 text-muted">
+      <i class="bi bi-bell-slash fs-2 d-block mb-2"></i>
+      No alerts sent yet. Run the seed script first, then let the alerter run for a week to build history.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Toast notification -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+  <div class="toast" id="scanToast" data-bs-delay="4000">
+    <div class="toast-header">
+      <i class="bi bi-airplane-fill text-primary me-2"></i>
+      <strong class="me-auto">Scan Triggered</strong>
+      <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+    </div>
+    <div class="toast-body" id="toastMsg">Scan running in the background…</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function triggerJob() {
+  fetch('/api/trigger', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({dry_run: false})
+  })
+  .then(r => r.json())
+  .then(data => {
+    document.getElementById('toastMsg').innerText = data.dry_run
+      ? 'Dry run started — no API credits used. Check terminal for output.'
+      : 'Live scan started! Check terminal logs for results.';
+    new bootstrap.Toast(document.getElementById('scanToast')).show();
+  })
+  .catch(() => alert('Failed to trigger scan. Is the Flask server running?'));
+}
+</script>
+{% endblock %}

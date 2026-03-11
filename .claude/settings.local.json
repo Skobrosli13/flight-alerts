@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python main.py --test-email)",
+      "Bash(python main.py --seed)"
+    ]
+  }
+}
