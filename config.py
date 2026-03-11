@@ -61,10 +61,19 @@ DOMESTIC_DATE_WINDOWS = [
     {"offset_weeks": 2,  "stay_nights": 4},   # ~2 weeks out, 4-night long weekend
     {"offset_weeks": 6,  "stay_nights": 4},   # ~6 weeks out, 4-night long weekend
 ]
-CARIBBEAN_DATE_WINDOWS = [
-    {"offset_weeks": 2,  "stay_nights": 3},   # ~2 weeks out, 3-night weekend
-    {"offset_weeks": 6,  "stay_nights": 3},   # ~6 weeks out, 3-night weekend
+WEEKEND_DATE_WINDOWS = [
+    # Near-term (~2 weeks out) — all 4 valid Thu/Fri × Sun/Mon combos
+    {"offset_weeks": 2, "stay_nights": 3, "departure_weekday": 3, "label": "Near-term"},  # Thu→Sun
+    {"offset_weeks": 2, "stay_nights": 4, "departure_weekday": 3, "label": "Near-term"},  # Thu→Mon
+    {"offset_weeks": 2, "stay_nights": 2, "departure_weekday": 4, "label": "Near-term"},  # Fri→Sun
+    {"offset_weeks": 2, "stay_nights": 3, "departure_weekday": 4, "label": "Near-term"},  # Fri→Mon
+    # Far-out (~6 weeks out) — all 4 valid Thu/Fri × Sun/Mon combos
+    {"offset_weeks": 6, "stay_nights": 3, "departure_weekday": 3, "label": "Far-out"},    # Thu→Sun
+    {"offset_weeks": 6, "stay_nights": 4, "departure_weekday": 3, "label": "Far-out"},    # Thu→Mon
+    {"offset_weeks": 6, "stay_nights": 2, "departure_weekday": 4, "label": "Far-out"},    # Fri→Sun
+    {"offset_weeks": 6, "stay_nights": 3, "departure_weekday": 4, "label": "Far-out"},    # Fri→Mon
 ]
+# Applies to: MIA, BOS, CUN, MBJ, PUJ (destinations with weekend-only departure/return rule)
 EUROPE_DATE_WINDOWS = [
     {"offset_weeks": 14, "stay_nights": 7},   # ~3.5 months out, 1-week trip
     {"offset_weeks": 30, "stay_nights": 7},   # ~7 months out, 1-week trip

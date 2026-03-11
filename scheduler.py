@@ -27,13 +27,39 @@ import notifier
 import searcher
 from destinations import (
     DOMESTIC_DESTINATIONS, CARIBBEAN_DESTINATIONS, EUROPE_DESTINATIONS,
-    SEARCH_PRIORITY,
+    WEEKEND_DATE_DESTINATIONS, SEARCH_PRIORITY,
 )
 from utils import dates_for_window
 
 log = logging.getLogger(__name__)
 
-TOTAL_SLOTS = len(SEARCH_PRIORITY) * 2  # 42 (21 dests × 2 windows)
+def _build_scan_slots() -> list[dict]:
+    """
+    Build the full ordered flat list of scan slots.
+    East coast destinations (MIA, BOS) get 8 slots each (4 date combos × 2 booking windows).
+    All other destinations get 2 slots each (near-term + far-out).
+    Total: 19×2 + 2×8 = 54 slots. Full cycle: 54 × 46 min = 41.4 hours.
+    """
+    slots = []
+    for dest in SEARCH_PRIORITY:
+        if dest in WEEKEND_DATE_DESTINATIONS:
+            for w in config.WEEKEND_DATE_WINDOWS:
+                slots.append({"dest": dest, **w})
+        else:
+            for window_idx in range(2):
+                if dest in DOMESTIC_DESTINATIONS:
+                    w = config.DOMESTIC_DATE_WINDOWS[window_idx]
+                elif dest in EUROPE_DESTINATIONS:
+                    w = config.EUROPE_DATE_WINDOWS[window_idx]
+                else:
+                    w = config.MIDDLE_EAST_ASIA_DATE_WINDOWS[window_idx]
+                label = "Near-term" if window_idx == 0 else "Far-out"
+                slots.append({"dest": dest, "label": label, **w})
+    return slots
+
+
+SCAN_SLOTS  = _build_scan_slots()
+TOTAL_SLOTS = len(SCAN_SLOTS)   # 54: 19×2 + 2×8
 
 
 # ---------------------------------------------------------------------------
@@ -51,21 +77,10 @@ def create_scheduler() -> BlockingScheduler:
 # Core search job
 # ---------------------------------------------------------------------------
 
-def _window_for_slot(destination: str, window_idx: int) -> dict:
-    """Return the date window for a destination. window_idx 0=near-term, 1=far-out."""
-    if destination in DOMESTIC_DESTINATIONS:
-        return config.DOMESTIC_DATE_WINDOWS[window_idx]
-    if destination in CARIBBEAN_DESTINATIONS:
-        return config.CARIBBEAN_DATE_WINDOWS[window_idx]
-    if destination in EUROPE_DESTINATIONS:
-        return config.EUROPE_DATE_WINDOWS[window_idx]
-    return config.MIDDLE_EAST_ASIA_DATE_WINDOWS[window_idx]
-
-
 def search_job(dry_run: bool = False) -> None:
     """
     Runs every 46 minutes. Scans 1 destination × 1 window per run using a
-    persistent sweep_cursor (0–41) that rotates through all 42 slots.
+    persistent sweep_cursor (0–53) that rotates through all 54 slots.
     Sends alerts for any deals found.
     """
     conn = db.get_connection()
@@ -76,13 +91,11 @@ def search_job(dry_run: bool = False) -> None:
             return
 
         # Determine current slot
-        cursor     = int(db.get_state(conn, "sweep_cursor", "0"))
-        dest_idx   = cursor % len(SEARCH_PRIORITY)
-        window_idx = cursor // len(SEARCH_PRIORITY)
+        cursor = int(db.get_state(conn, "sweep_cursor", "0"))
+        slot   = SCAN_SLOTS[cursor % TOTAL_SLOTS]
 
-        destination  = SEARCH_PRIORITY[dest_idx]
-        window       = _window_for_slot(destination, window_idx)
-        window_label = "near-term" if window_idx == 0 else "far-out"
+        destination  = slot["dest"]
+        window_label = slot["label"]
 
         log.info(
             "=== Search job | slot %d/%d | %s [%s] ===",
@@ -90,7 +103,8 @@ def search_job(dry_run: bool = False) -> None:
         )
 
         departure_date, return_date = dates_for_window(
-            window["offset_weeks"], window["stay_nights"]
+            slot["offset_weeks"], slot["stay_nights"],
+            departure_weekday=slot.get("departure_weekday", 4),
         )
 
         deals_found = []

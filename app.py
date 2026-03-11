@@ -34,7 +34,8 @@ try:
     import database as db
     from destinations import (
         DESTINATIONS, AIRPORT_NAMES, SEARCH_PRIORITY,
-        DOMESTIC_DESTINATIONS, CARIBBEAN_DESTINATIONS, EUROPE_DESTINATIONS,
+        DOMESTIC_DESTINATIONS, EUROPE_DESTINATIONS,
+        WEEKEND_DATE_DESTINATIONS,
     )
     SETUP_OK = True
     SETUP_ERROR = None
@@ -46,6 +47,9 @@ except EnvironmentError as e:
     DESTINATIONS = {}
     AIRPORT_NAMES = {}
     SEARCH_PRIORITY = []
+    DOMESTIC_DESTINATIONS = set()
+    EUROPE_DESTINATIONS = set()
+    WEEKEND_DATE_DESTINATIONS = set()
 
 GROUP_LABELS = {
     "domestic_tier1":   "Domestic Tier 1",
@@ -55,6 +59,32 @@ GROUP_LABELS = {
     "middle_east":      "Middle East",
     "asia_pacific":     "Asia-Pacific",
 }
+
+
+def _build_scan_slots() -> list[dict]:
+    """Mirror of scheduler._build_scan_slots — kept in sync manually."""
+    if not SEARCH_PRIORITY:
+        return []
+    slots = []
+    for dest in SEARCH_PRIORITY:
+        if dest in WEEKEND_DATE_DESTINATIONS:
+            for w in config.WEEKEND_DATE_WINDOWS:
+                slots.append({"dest": dest, **w})
+        else:
+            for window_idx in range(2):
+                if dest in DOMESTIC_DESTINATIONS:
+                    w = config.DOMESTIC_DATE_WINDOWS[window_idx]
+                elif dest in EUROPE_DESTINATIONS:
+                    w = config.EUROPE_DATE_WINDOWS[window_idx]
+                else:
+                    w = config.MIDDLE_EAST_ASIA_DATE_WINDOWS[window_idx]
+                label = "Near-term" if window_idx == 0 else "Far-out"
+                slots.append({"dest": dest, "label": label, **w})
+    return slots
+
+
+SCAN_SLOTS  = _build_scan_slots()
+TOTAL_SLOTS = len(SCAN_SLOTS)  # 72: 5×8 + 16×2
 
 
 # ---------------------------------------------------------------------------
@@ -128,10 +158,9 @@ def dashboard():
             "SELECT COUNT(*) AS cnt FROM price_history"
         ).fetchone()["cnt"])
 
-        sweep_cursor    = int(db.get_state(conn, "sweep_cursor", "0"))
-        next_dest_idx   = sweep_cursor % len(SEARCH_PRIORITY)
-        next_window_idx = sweep_cursor // len(SEARCH_PRIORITY)
-        next_dest       = SEARCH_PRIORITY[next_dest_idx]
+        sweep_cursor = int(db.get_state(conn, "sweep_cursor", "0"))
+        next_slot    = SCAN_SLOTS[sweep_cursor % TOTAL_SLOTS]
+        next_dest    = next_slot["dest"]
 
     finally:
         conn.close()
@@ -165,10 +194,10 @@ def dashboard():
         total_destinations=len(SEARCH_PRIORITY),
         origin_usage=usage["by_origin"],
         sweep_cursor=sweep_cursor,
-        total_slots=len(SEARCH_PRIORITY) * 2,
+        total_slots=TOTAL_SLOTS,
         next_destination=next_dest,
         next_dest_name=AIRPORT_NAMES.get(next_dest, next_dest),
-        next_window_label="Near-term" if next_window_idx == 0 else "Far-out",
+        next_window_label=next_slot["label"],
     )
 
 
@@ -311,8 +340,6 @@ def api_status():
 @app.route("/schedule")
 @require_setup
 def schedule():
-    TOTAL_SLOTS = len(SEARCH_PRIORITY) * 2
-
     conn = db.get_connection()
     try:
         sweep_cursor = int(db.get_state(conn, "sweep_cursor", "0"))
@@ -334,17 +361,6 @@ def schedule():
     else:
         next_fire = now
 
-    def _window_info(dest, window_idx):
-        if dest in DOMESTIC_DESTINATIONS:
-            windows = config.DOMESTIC_DATE_WINDOWS
-        elif dest in CARIBBEAN_DESTINATIONS:
-            windows = config.CARIBBEAN_DATE_WINDOWS
-        elif dest in EUROPE_DESTINATIONS:
-            windows = config.EUROPE_DATE_WINDOWS
-        else:
-            windows = config.MIDDLE_EAST_ASIA_DATE_WINDOWS
-        return windows[window_idx]
-
     def _group(dest):
         for group, codes in DESTINATIONS.items():
             if dest in codes:
@@ -353,21 +369,18 @@ def schedule():
 
     slots = []
     for i in range(TOTAL_SLOTS):
-        slot_num   = (sweep_cursor + i) % TOTAL_SLOTS
-        dest_idx   = slot_num % len(SEARCH_PRIORITY)
-        window_idx = slot_num // len(SEARCH_PRIORITY)
-        dest       = SEARCH_PRIORITY[dest_idx]
-        win        = _window_info(dest, window_idx)
-        eta        = next_fire + timedelta(minutes=46 * i)
+        slot_idx = (sweep_cursor + i) % TOTAL_SLOTS
+        slot     = SCAN_SLOTS[slot_idx]
+        dest     = slot["dest"]
+        eta      = next_fire + timedelta(minutes=46 * i)
         slots.append({
             "queue_pos":    i + 1,
-            "slot_num":     slot_num + 1,
             "destination":  dest,
             "dest_name":    AIRPORT_NAMES.get(dest, dest),
             "group":        _group(dest),
-            "window_label": "Near-term" if window_idx == 0 else "Far-out",
-            "offset_weeks": win["offset_weeks"],
-            "stay_nights":  win["stay_nights"],
+            "window_label": slot["label"],
+            "offset_weeks": slot["offset_weeks"],
+            "stay_nights":  slot["stay_nights"],
             "eta":          eta.isoformat(),
             "is_next":      i == 0,
         })

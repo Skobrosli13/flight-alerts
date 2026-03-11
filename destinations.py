@@ -74,6 +74,8 @@ assert len(SEARCH_PRIORITY) == len(set(SEARCH_PRIORITY)), "Duplicate destination
 
 DOMESTIC_DESTINATIONS: set[str] = set(DESTINATIONS["domestic_tier1"])
 CARIBBEAN_DESTINATIONS: set[str] = set(DESTINATIONS["caribbean_mexico"])
+# Destinations subject to the weekend-only departure/return rule — search all 4 Thu/Fri × Sun/Mon combos
+WEEKEND_DATE_DESTINATIONS: set[str] = {"MIA", "BOS"} | set(DESTINATIONS["caribbean_mexico"])
 EUROPE_DESTINATIONS: set[str] = set(
     DESTINATIONS["europe_tier1"]
     + DESTINATIONS["europe_tier2"]

@@ -30,12 +30,13 @@ def setup_logging(level: str = "INFO", log_file: str = "") -> None:
 # Date helpers
 # ---------------------------------------------------------------------------
 
-def departure_date_for_window(offset_weeks: int) -> str:
-    """Return ISO date string for a departure offset_weeks from today."""
+def departure_date_for_window(offset_weeks: int, preferred_weekday: int = 4) -> str:
+    """Return ISO date string for a departure offset_weeks from today.
+    preferred_weekday: 0=Mon … 6=Sun (default 4=Friday).
+    """
     d = date.today() + timedelta(weeks=offset_weeks)
-    # Prefer Fridays for weekend departures (weekday() 4 = Friday)
-    days_to_friday = (4 - d.weekday()) % 7
-    d += timedelta(days=days_to_friday)
+    days_to_target = (preferred_weekday - d.weekday()) % 7
+    d += timedelta(days=days_to_target)
     return d.isoformat()
 
 
@@ -45,8 +46,10 @@ def return_date_for_window(departure_iso: str, stay_nights: int) -> str:
     return d.isoformat()
 
 
-def dates_for_window(offset_weeks: int, stay_nights: int) -> tuple[str, str]:
-    depart = departure_date_for_window(offset_weeks)
+def dates_for_window(
+    offset_weeks: int, stay_nights: int, departure_weekday: int = 4
+) -> tuple[str, str]:
+    depart = departure_date_for_window(offset_weeks, departure_weekday)
     ret = return_date_for_window(depart, stay_nights)
     return depart, ret
 

@@ -23,8 +23,9 @@ DESTINATIONS
      - Asia-Pacific (3):      NRT, BKK, SYD
 6. Destinations are scanned in priority order — Domestic Tier 1 is always scanned first,
    ensuring high-demand routes are never skipped if the monthly budget runs out.
-7. Scans run continuously every 46 minutes, processing 1 destination × 1 window per run.
-   A full sweep of all 42 slots (21 dests × 2 windows) completes in ~32 hours.
+7. Scans run continuously every 46 minutes, processing 1 destination × 1 date combo per run.
+   A full sweep of all 72 slots completes in ~55 hours.
+   (16 non-weekend dests × 2 windows = 32 slots; MIA, BOS, CUN, MBJ, PUJ × 8 combos each = 40 slots)
 
 
 FLIGHT FILTERS
@@ -39,9 +40,9 @@ FLIGHT FILTERS
 13. For east coast destinations (MIA, BOS) and Caribbean/Mexico (CUN, MBJ, PUJ),
     deal alerts are only sent for weekend travel: departure must be on a Thursday or Friday,
     and return must be on a Sunday or Monday. Non-weekend date combinations are silently skipped.
-14. Caribbean/Mexico (CUN, MBJ, PUJ) trip lengths are 3–4 nights (short weekend getaways),
-    searched within the next 2 months — the same near-term booking horizon as east coast
-    domestic destinations.
+14. Caribbean/Mexico (CUN, MBJ, PUJ) use the same 4-combo weekend search as east coast
+    domestic (MIA, BOS): all valid Thu/Fri × Sun/Mon combos for both near-term and far-out
+    booking windows. Trip lengths: 2–4 nights (Fri→Sun, Thu→Sun, Fri→Mon, Thu→Mon).
 
 
 DEAL DETECTION
@@ -77,34 +78,32 @@ ALERT RULES
 
 SEARCH SCHEDULE & API BUDGET
 -----------------------------
-24. The scheduler runs a search job every 46 minutes, processing 1 destination × 1 window
-    per run using a persistent sweep_cursor (slots 0–41) that rotates continuously:
-      - Slots 0–20:  near-term window for each destination in priority order
-      - Slots 21–41: far-out window for each destination in priority order
-25. Each run uses 1 API credit. Full cycle: 42 slots × 46 min = 32.2 hours.
+24. The scheduler runs a search job every 46 minutes, processing 1 destination × 1 date
+    combo per run using a persistent sweep_cursor (slots 0–71) that rotates continuously.
+    Slot order: each destination's full set of date combos in SEARCH_PRIORITY order.
+25. Each run uses 1 API credit. Full cycle: 72 slots × 46 min = 55.2 hours.
     Usage: ~31.3 credits/day → ~939 credits/month ✓
 26. The monthly API credit budget is capped at 950 credits (SerpApi Starter plan provides
     1,000 credits/month; 50 credits are held as a buffer).
 27. If the monthly budget ceiling is reached, all remaining job runs that month are skipped.
 28. A warning is logged when API usage reaches 80% of the monthly budget.
-29. Date windows are split by destination type. Each slot uses one window (near-term or
-    far-out based on cursor position), so every destination gets both windows checked
-    within each 32-hour cycle:
-    Domestic Tier 1 (LAX, MIA, BOS, ORD, LAS):
+29. Date windows are split by destination type. Each slot uses one date combo per run,
+    so every destination cycles through all its combos within each ~55-hour sweep:
+    Weekend Destinations (MIA, BOS, CUN, MBJ, PUJ) — 8 slots each, all valid combos:
+      - Near-term (~2 weeks out): Thu→Sun (3n), Thu→Mon (4n), Fri→Sun (2n), Fri→Mon (3n)
+      - Far-out   (~6 weeks out): Thu→Sun (3n), Thu→Mon (4n), Fri→Sun (2n), Fri→Mon (3n)
+    Domestic Other (LAX, ORD, LAS):
       - Near-term: ~2 weeks out, 4-night stay  (long weekend)
       - Far-out:   ~6 weeks out, 4-night stay  (long weekend)
-    Caribbean & Mexico (CUN, MBJ, PUJ):
-      - Near-term: ~2 weeks out, 3-night stay  (weekend getaway)
-      - Far-out:   ~6 weeks out, 3-night stay  (weekend getaway)
     Europe (LHR, CDG, FCO, BCN, LIS, MAD):
       - Near-term: ~3.5 months out, 7-night stay
       - Far-out:   ~7 months out, 7-night stay
     Middle East & Asia-Pacific (BEY, TLV, IST, CAI, NRT, BKK, SYD):
       - Near-term: ~3.5 months out, 10-night stay
       - Far-out:   ~7 months out, 14-night stay
-    Departures are scheduled to prefer Fridays.
-30. A one-time seed run (42 credits: 21 dests × 1 origin × 2 windows) is required at first
-    launch to bootstrap the price history database before deal detection can activate.
+    Departures snap to the nearest target weekday from today + offset_weeks.
+30. A one-time seed run (21 dests × 1 origin × 2 windows = 42 credits minimum) is required
+    at first launch to bootstrap the price history database before deal detection can activate.
 
 
 API RELIABILITY
