@@ -14,15 +14,15 @@
     <span class="badge bg-secondary">{{ codes|length }}</span>
   </div>
   <div class="table-responsive">
-    <table class="table table-hover table-sm align-middle mb-0">
+    <table class="table table-hover table-sm align-middle mb-0 sortable">
       <thead class="text-muted small">
         <tr>
-          <th class="ps-3" style="width:80px">Code</th>
-          <th>City</th>
-          <th>Observations</th>
-          <th>Avg Price</th>
-          <th>Best Price</th>
-          <th>Last Scanned</th>
+          <th class="ps-3" style="width:80px" data-sort="text">Code</th>
+          <th data-sort="text">City</th>
+          <th data-sort="num">Observations</th>
+          <th data-sort="num">Avg Price</th>
+          <th data-sort="num">Best Price</th>
+          <th data-sort="date">Last Scanned</th>
           <th></th>
         </tr>
       </thead>
@@ -34,7 +34,7 @@
             <span class="badge bg-primary font-monospace">{{ code }}</span>
           </td>
           <td class="fw-medium">{{ airport_names.get(code, code) }}</td>
-          <td>
+          <td data-sort-value="{{ s.obs_count if s else -1 }}">
             {% if s %}
               {% if s.obs_count >= min_observations %}
                 <span class="text-success">
@@ -50,13 +50,13 @@
               <span class="text-danger"><i class="bi bi-x-circle me-1"></i>No data</span>
             {% endif %}
           </td>
-          <td>
+          <td data-sort-value="{{ s.avg_price if s and s.avg_price else 0 }}">
             {% if s.avg_price %}<span class="fw-medium">${{ "%.0f"|format(s.avg_price) }}</span>{% else %}<span class="text-muted">—</span>{% endif %}
           </td>
-          <td>
+          <td data-sort-value="{{ s.min_price if s and s.min_price else 0 }}">
             {% if s.min_price %}<span class="text-success fw-bold">${{ "%.0f"|format(s.min_price) }}</span>{% else %}<span class="text-muted">—</span>{% endif %}
           </td>
-          <td class="text-muted small">
+          <td class="text-muted small" data-sort-value="{{ s.last_seen[:10] if s and s.last_seen else '' }}">
             {{ s.last_seen[:10] if s.last_seen else '—' }}
           </td>
           <td class="pe-3">

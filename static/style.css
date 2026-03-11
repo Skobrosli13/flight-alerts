@@ -216,6 +216,27 @@ pre {
   to   { transform: rotate(360deg); }
 }
 
+/* Sortable table headers */
+th[data-sort] {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+th[data-sort]:hover {
+  color: #e6edf3 !important;
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+th[data-sort]::after {
+  content: ' ⇕';
+  opacity: 0.3;
+  font-size: 0.7em;
+}
+
+th[data-sort].sort-asc::after  { content: ' ↑'; opacity: 1; color: #2f81f7; }
+th[data-sort].sort-desc::after { content: ' ↓'; opacity: 1; color: #2f81f7; }
+
 /* Font-monospace badges */
 .font-monospace {
   font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace;

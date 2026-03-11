@@ -72,7 +72,7 @@
           <div class="col-12">
             <p class="text-muted small mb-2">Usage by origin this month:</p>
             <div class="d-flex gap-3 flex-wrap">
-              {% for origin in ['IAD', 'DCA', 'BWI'] %}
+              {% for origin in ['IAD'] %}
               <div class="d-flex align-items-center gap-2">
                 <span class="badge bg-primary">{{ origin }}</span>
                 <span class="fw-semibold">{{ origin_usage.get(origin, 0) }}</span>
@@ -84,7 +84,7 @@
         </div>
         {% if last_scan %}
         <p class="text-muted small mb-0 mt-3">
-          <i class="bi bi-clock me-1"></i>Last scan: {{ last_scan[:16].replace('T',' ') }} UTC
+          <i class="bi bi-clock me-1"></i>Last scan: {{ last_scan | eastern }} ET
         </p>
         {% endif %}
       </div>
@@ -95,18 +95,20 @@
     <div class="card h-100">
       <div class="card-body text-center">
         <h6 class="card-title text-muted text-uppercase small mb-3">Scan Queue</h6>
-        <div class="display-5 fw-bold text-primary mb-1">{{ next_destination }}</div>
-        <div class="text-muted mb-3">{{ next_dest_name }}</div>
-        <div class="progress mb-2" style="height:6px">
+        <div class="text-muted small mb-1">Slot {{ sweep_cursor + 1 }} of {{ total_slots }}</div>
+        <div class="progress mb-3" style="height:6px">
           <div class="progress-bar bg-primary"
-               style="width:{{ ((batch_cursor % total_destinations) / total_destinations * 100)|round(1) }}%">
+               style="width:{{ ((sweep_cursor / total_slots) * 100)|round(1) }}%">
           </div>
         </div>
+        <div class="display-5 fw-bold text-primary mb-0">{{ next_destination }}</div>
+        <div class="text-muted mb-3">{{ next_dest_name }} · {{ next_window_label }}</div>
         <div class="text-muted small">
-          Position {{ (batch_cursor % total_destinations) + 1 }} of {{ total_destinations }}
-        </div>
-        <div class="text-muted small mt-2">
           <i class="bi bi-map me-1"></i>{{ dests_scanned }} / {{ total_destinations }} scanned this month
+        </div>
+        <div class="mt-3 pt-3 border-top border-secondary">
+          <div class="text-muted small text-uppercase fw-semibold mb-1" style="letter-spacing:.05em">Next Scan</div>
+          <div id="scanCountdown" class="fw-bold text-primary fs-6">—</div>
         </div>
       </div>
     </div>
@@ -123,31 +125,33 @@
 
     {% if recent_alerts %}
     <div class="table-responsive">
-      <table class="table table-hover table-sm align-middle mb-0">
+      <table class="table table-hover table-sm align-middle mb-0 sortable">
         <thead class="text-muted small">
           <tr>
-            <th>Route</th>
-            <th>Travel Dates</th>
-            <th>Price</th>
-            <th>Avg</th>
-            <th>Savings</th>
-            <th>Sent</th>
+            <th data-sort="text">Route</th>
+            <th data-sort="date">Departure</th>
+            <th data-sort="date">Return</th>
+            <th data-sort="num">Price</th>
+            <th data-sort="num">Avg</th>
+            <th data-sort="num">Savings</th>
+            <th data-sort="date">Sent</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           {% for a in recent_alerts %}
           <tr>
-            <td>
+            <td data-sort-value="{{ a.destination }}">
               <span class="badge bg-secondary me-1">{{ a.origin }}</span>
               <i class="bi bi-arrow-right text-muted"></i>
               <span class="badge bg-secondary ms-1">{{ a.destination }}</span>
             </td>
-            <td class="text-muted small">{{ a.departure_date }} – {{ a.return_date }}</td>
-            <td class="text-success fw-bold">${{ "%.0f"|format(a.alerted_price) }}</td>
-            <td class="text-muted">${{ "%.0f"|format(a.historical_avg) }}</td>
-            <td><span class="badge bg-success">{{ "%.0f"|format(a.pct_below_avg) }}% off</span></td>
-            <td class="text-muted small">{{ a.sent_at[:16].replace('T',' ') }}</td>
+            <td>{{ a.departure_date }}</td>
+            <td class="text-muted small">{{ a.return_date }}</td>
+            <td class="text-success fw-bold" data-sort-value="{{ a.alerted_price }}">${{ "%.0f"|format(a.alerted_price) }}</td>
+            <td class="text-muted" data-sort-value="{{ a.historical_avg }}">${{ "%.0f"|format(a.historical_avg) }}</td>
+            <td data-sort-value="{{ a.pct_below_avg }}"><span class="badge bg-success">{{ "%.0f"|format(a.pct_below_avg) }}% off</span></td>
+            <td class="text-muted small" data-sort-value="{{ a.sent_at }}">{{ a.sent_at | eastern }} ET</td>
             <td>
               <a href="{{ flights_url(a.origin, a.destination, a.departure_date, a.return_date) }}"
                  target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
@@ -183,6 +187,43 @@
 
 {% block scripts %}
 <script>
+/* Scan countdown */
+(function () {
+  var nextScanAt = null;
+  var countdownEl = document.getElementById('scanCountdown');
+
+  function fmt(ms) {
+    if (ms <= 0) return 'Running soon…';
+    var s = Math.floor(ms / 1000);
+    var h = Math.floor(s / 3600);
+    var m = Math.floor((s % 3600) / 60);
+    var sec = s % 60;
+    if (h > 0) return h + 'h ' + m + 'm ' + sec + 's';
+    if (m > 0) return m + 'm ' + sec + 's';
+    return sec + 's';
+  }
+
+  function tick() {
+    if (!nextScanAt || !countdownEl) return;
+    countdownEl.textContent = fmt(nextScanAt - Date.now());
+  }
+
+  fetch('/api/status')
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.next_scan_at) {
+        nextScanAt = new Date(d.next_scan_at).getTime();
+        tick();
+        setInterval(tick, 1000);
+      } else if (countdownEl) {
+        countdownEl.textContent = 'No scan data yet';
+      }
+    })
+    .catch(function () {
+      if (countdownEl) countdownEl.textContent = '—';
+    });
+})();
+
 function triggerJob() {
   fetch('/api/trigger', {
     method: 'POST',

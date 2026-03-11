@@ -28,19 +28,18 @@ GMAIL_APP_PASSWORD = _require("GMAIL_APP_PASSWORD")
 ALERT_RECIPIENT = _require("ALERT_RECIPIENT")
 
 # ---------------------------------------------------------------------------
-# Origins (DC-area airports, always searched)
+# Origins (IAD only — captures ~90% of deal-eligible routes from DC area)
 # ---------------------------------------------------------------------------
-ORIGINS = ["IAD", "DCA", "BWI"]
+ORIGINS = ["IAD"]
 
 # ---------------------------------------------------------------------------
 # API budget control
-# Starter plan: 1,000 searches/month → ~950 usable (50 buffer)
-# Budget math: 950 / 120 jobs/month ≈ 8 searches per job
-#   1 destination × 3 origins × 2 date windows = 6 searches/job ✓
-#   Full rotation: 26 destinations × 6h ≈ 6.5 days per sweep
+# Starter plan: 1,000 searches/month → 950 usable (50 buffer)
+# Budget math: 42 slots (21 dests × 2 windows) × 1 credit/slot
+#   Interval: every 46 min → 31.3 credits/day → ~939 credits/month ✓
+#   Full cycle: 42 × 46 min = 32.2 hours
 # ---------------------------------------------------------------------------
 MONTHLY_BUDGET = int(os.getenv("MONTHLY_BUDGET", "950"))        # search credits
-SEARCHES_PER_JOB = int(os.getenv("SEARCHES_PER_JOB", "6"))      # per 6-hour run
 COST_PER_SEARCH = float(os.getenv("COST_PER_SEARCH", "0.01"))   # $ per credit
 MONTHLY_BUDGET_USD = float(os.getenv("MONTHLY_BUDGET_USD", "50.00"))
 
@@ -50,19 +49,23 @@ MONTHLY_BUDGET_USD = float(os.getenv("MONTHLY_BUDGET_USD", "50.00"))
 DEAL_THRESHOLD = float(os.getenv("DEAL_THRESHOLD", "0.40"))         # 40% below avg
 MIN_OBSERVATIONS = int(os.getenv("MIN_OBSERVATIONS", "10"))          # cold-start guard
 ALERT_COOLDOWN_DAYS = int(os.getenv("ALERT_COOLDOWN_DAYS", "7"))
+NEAR_TERM_COOLDOWN_DAYS = int(os.getenv("NEAR_TERM_COOLDOWN_DAYS", "3"))  # domestic & caribbean (shorter booking window)
 STATS_DATE_WINDOW = int(os.getenv("STATS_DATE_WINDOW", "14"))        # ±days for query
 STATS_LOOKBACK_DAYS = int(os.getenv("STATS_LOOKBACK_DAYS", "90"))
 
 # ---------------------------------------------------------------------------
 # Search windows: split by destination type.
-# Domestic routes book near-term; international requires advance planning.
-# Both sets use 2 windows → 6 credits/run unchanged (720/month).
+# AM run uses window[0] (near-term); PM run uses window[1] (far-out).
 # ---------------------------------------------------------------------------
 DOMESTIC_DATE_WINDOWS = [
-    {"offset_weeks": 2,  "stay_nights": 4},   # ~2 weeks out, long weekend
-    {"offset_weeks": 6,  "stay_nights": 7},   # ~6 weeks out, week trip
+    {"offset_weeks": 2,  "stay_nights": 4},   # ~2 weeks out, 4-night long weekend
+    {"offset_weeks": 6,  "stay_nights": 4},   # ~6 weeks out, 4-night long weekend
 ]
-EUROPE_CARIBBEAN_DATE_WINDOWS = [
+CARIBBEAN_DATE_WINDOWS = [
+    {"offset_weeks": 2,  "stay_nights": 3},   # ~2 weeks out, 3-night weekend
+    {"offset_weeks": 6,  "stay_nights": 3},   # ~6 weeks out, 3-night weekend
+]
+EUROPE_DATE_WINDOWS = [
     {"offset_weeks": 14, "stay_nights": 7},   # ~3.5 months out, 1-week trip
     {"offset_weeks": 30, "stay_nights": 7},   # ~7 months out, 1-week trip
 ]

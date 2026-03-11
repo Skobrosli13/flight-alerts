@@ -11,7 +11,8 @@
       "Bash(cmd /c taskkill /PID 21272 /F)",
       "Bash(powershell -Command \"Stop-Process -Id 21272 -Force; Write-Host ''done''\")",
       "Bash(findstr \"LISTENING\")",
-      "Read(//c/Users/skobr/.claude/projects/c--Users-skobr-OneDrive-Documents-Flight-Program/memory/**)"
+      "Read(//c/Users/skobr/.claude/projects/c--Users-skobr-OneDrive-Documents-Flight-Program/memory/**)",
+      "Read(//c/Users/skobr/.claude/plans/**)"
     ],
     "additionalDirectories": [
       "c:\\Users\\skobr\\.claude\\projects\\c--Users-skobr-OneDrive-Documents-Flight-Program\\memory"

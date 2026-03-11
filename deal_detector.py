@@ -19,9 +19,11 @@ from typing import Optional
 
 import config
 import database as db
-from destinations import get_destination_name, DOMESTIC_DESTINATIONS
+from destinations import get_destination_name, DOMESTIC_DESTINATIONS, CARIBBEAN_DESTINATIONS
 
-EAST_COAST_DESTINATIONS = {"MIA", "MCO", "JFK", "BOS"}
+_NEAR_TERM_DESTINATIONS = DOMESTIC_DESTINATIONS | CARIBBEAN_DESTINATIONS
+
+EAST_COAST_DESTINATIONS = {"MIA", "BOS", "CUN", "MBJ", "PUJ"}
 WEEKEND_DEPART_DAYS = {3, 4}   # Thursday=3, Friday=4
 WEEKEND_RETURN_DAYS = {6, 0}   # Sunday=6, Monday=0
 
@@ -123,8 +125,13 @@ def evaluate_search_results(
         return None
 
     # --- Step 5: duplicate-alert guard ---
+    cooldown = (
+        config.NEAR_TERM_COOLDOWN_DAYS
+        if destination in _NEAR_TERM_DESTINATIONS
+        else config.ALERT_COOLDOWN_DAYS
+    )
     if db.was_recently_alerted(
-        conn, origin, destination, departure_date, config.ALERT_COOLDOWN_DAYS
+        conn, origin, destination, departure_date, cooldown
     ):
         log.info(
             "DEAL found but recently alerted: %s→%s %s $%.0f",

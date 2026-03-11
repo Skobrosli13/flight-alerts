@@ -1,21 +1,21 @@
 DC FLIGHT DEAL ALERTER — BUSINESS RULES
 ========================================
-Last updated: March 2026 (Rule 13 added: east coast weekend-only alerts)
+Last updated: March 2026 (Destinations reduced to 21; IAD only; 46-min rolling scan)
 
 
 ORIGINS
 -------
 1. Only flights departing from the Washington DC metro area are tracked.
-2. The three origin airports are: IAD (Dulles), DCA (Reagan National), BWI (Baltimore/Washington).
-3. All three origins are searched on every job run.
-4. If DCA returns no results from SerpApi, the search is automatically retried using the
-   WAS (Washington metro) airport code as a fallback.
+2. The origin airport is: IAD (Dulles). DCA and BWI are excluded — DCA serves mostly
+   domestic short-hops; BWI is Spirit/Southwest-heavy (both excluded airlines).
+3. IAD is searched on every job run.
+4. (Reserved — DCA fallback no longer applicable.)
 
 
 DESTINATIONS
 ------------
-5. 26 destinations are monitored, grouped into six tiers:
-     - Domestic Tier 1 (10):  LAX, SFO, MIA, MCO, JFK, BOS, ORD, LAS, SEA, DEN
+5. 21 destinations are monitored, grouped into six tiers:
+     - Domestic Tier 1 (5):   LAX, MIA, BOS, ORD, LAS
      - Caribbean & Mexico (3): CUN, MBJ, PUJ
      - Europe Tier 1 (4):     LHR, CDG, FCO, BCN
      - Europe Tier 2 (2):     LIS, MAD
@@ -23,8 +23,8 @@ DESTINATIONS
      - Asia-Pacific (3):      NRT, BKK, SYD
 6. Destinations are scanned in priority order — Domestic Tier 1 is always scanned first,
    ensuring high-demand routes are never skipped if the monthly budget runs out.
-7. One destination is scanned per scheduler run (rotation). A full sweep of all 26
-   destinations takes approximately 6.5 days (26 destinations × 6-hour interval).
+7. Scans run continuously every 46 minutes, processing 1 destination × 1 window per run.
+   A full sweep of all 42 slots (21 dests × 2 windows) completes in ~32 hours.
 
 
 FLIGHT FILTERS
@@ -36,82 +36,96 @@ FLIGHT FILTERS
     eligible for deal alerts. If no nonstop options are returned, the route is skipped.
 12. For international destinations, nonstop flights are preferred but 1-stop flights
     are also eligible for deal alerts.
-13. For east coast destinations (MIA, MCO, JFK, BOS), deal alerts are only sent for
-    weekend travel: departure must be on a Thursday or Friday, and return must be on
-    a Sunday or Monday. Non-weekend date combinations are silently skipped.
+13. For east coast destinations (MIA, BOS) and Caribbean/Mexico (CUN, MBJ, PUJ),
+    deal alerts are only sent for weekend travel: departure must be on a Thursday or Friday,
+    and return must be on a Sunday or Monday. Non-weekend date combinations are silently skipped.
+14. Caribbean/Mexico (CUN, MBJ, PUJ) trip lengths are 3–4 nights (short weekend getaways),
+    searched within the next 2 months — the same near-term booking horizon as east coast
+    domestic destinations.
 
 
 DEAL DETECTION
 --------------
-14. A route must have a minimum of 10 price observations before deal detection is
+15. A route must have a minimum of 10 price observations before deal detection is
     activated. Routes with fewer observations are skipped (cold-start guard).
-15. A flight qualifies as a deal only when BOTH of the following conditions are met:
+16. A flight qualifies as a deal only when BOTH of the following conditions are met:
       a. Current price is at or below 40% less than the historical average
          (current_price <= mean × 0.60)
       b. Current price is below the statistical lower bound
          (current_price < mean − 1.5 × standard deviation)
-16. Historical statistics are computed using prices observed within a ±14-day window
+17. Historical statistics are computed using prices observed within a ±14-day window
     around the departure date to account for seasonal variation.
-17. Only price observations from the past 90 days are included in the historical average.
-18. The best available price per search result is defined as the lowest price with the
+18. Only price observations from the past 90 days are included in the historical average.
+19. The best available price per search result is defined as the lowest price with the
     fewest stops (nonstop preferred). For domestic routes, only nonstop prices are
     considered (see Rule 11).
 
 
 ALERT RULES
 -----------
-19. Once a deal alert is sent for a specific route and departure date, no further alerts
-    will be sent for that same route and departure date for 7 days (cooldown period).
-20. Deal alerts are sent via Gmail to the configured ALERT_RECIPIENT email address.
-21. Each alert email includes: origin, destination, alert price, historical average,
+20. Once a deal alert is sent for a specific route and departure date, no further alerts
+    will be sent for that same route and departure date until the cooldown expires:
+      - Domestic & Caribbean/Mexico: 3-day cooldown (short booking window)
+      - Europe, Middle East, Asia-Pacific: 7-day cooldown
+21. Deal alerts are sent via Gmail to the configured ALERT_RECIPIENT email address.
+22. Each alert email includes: origin, destination, alert price, historical average,
     savings percentage, dollar savings, airline, stops, travel dates, and a direct link
     to search the deal on Google Flights.
-22. An optional weekly digest email summarizing API usage, deals found, and recent alerts
+23. An optional weekly digest email summarizing API usage, deals found, and recent alerts
     can be enabled via the WEEKLY_DIGEST setting (disabled by default).
 
 
 SEARCH SCHEDULE & API BUDGET
 -----------------------------
-23. The scheduler runs a search job every 6 hours (4 times per day, ~120 runs/month).
-24. Each job searches 1 destination × 3 origins × 2 date windows = 6 API credits per run.
-25. The monthly API credit budget is capped at 950 credits (SerpApi Starter plan provides
+24. The scheduler runs a search job every 46 minutes, processing 1 destination × 1 window
+    per run using a persistent sweep_cursor (slots 0–41) that rotates continuously:
+      - Slots 0–20:  near-term window for each destination in priority order
+      - Slots 21–41: far-out window for each destination in priority order
+25. Each run uses 1 API credit. Full cycle: 42 slots × 46 min = 32.2 hours.
+    Usage: ~31.3 credits/day → ~939 credits/month ✓
+26. The monthly API credit budget is capped at 950 credits (SerpApi Starter plan provides
     1,000 credits/month; 50 credits are held as a buffer).
-26. If the monthly budget ceiling is reached, all remaining job runs that month are skipped.
-27. A warning is logged when API usage reaches 80% of the monthly budget.
-28. Two date windows are searched per destination per run, split by destination type:
-    Domestic (Tier 1):
-      - ~2 weeks out, 4-night stay  (near-term weekend trip)
-      - ~6 weeks out, 7-night stay  (upcoming week trip)
-    Europe & Caribbean/Mexico:
-      - ~3.5 months out, 7-night stay
-      - ~7 months out, 7-night stay
-    Middle East & Asia-Pacific:
-      - ~3.5 months out, 10-night stay
-      - ~7 months out, 14-night stay
+27. If the monthly budget ceiling is reached, all remaining job runs that month are skipped.
+28. A warning is logged when API usage reaches 80% of the monthly budget.
+29. Date windows are split by destination type. Each slot uses one window (near-term or
+    far-out based on cursor position), so every destination gets both windows checked
+    within each 32-hour cycle:
+    Domestic Tier 1 (LAX, MIA, BOS, ORD, LAS):
+      - Near-term: ~2 weeks out, 4-night stay  (long weekend)
+      - Far-out:   ~6 weeks out, 4-night stay  (long weekend)
+    Caribbean & Mexico (CUN, MBJ, PUJ):
+      - Near-term: ~2 weeks out, 3-night stay  (weekend getaway)
+      - Far-out:   ~6 weeks out, 3-night stay  (weekend getaway)
+    Europe (LHR, CDG, FCO, BCN, LIS, MAD):
+      - Near-term: ~3.5 months out, 7-night stay
+      - Far-out:   ~7 months out, 7-night stay
+    Middle East & Asia-Pacific (BEY, TLV, IST, CAI, NRT, BKK, SYD):
+      - Near-term: ~3.5 months out, 10-night stay
+      - Far-out:   ~7 months out, 14-night stay
     Departures are scheduled to prefer Fridays.
-29. A one-time seed run (156 credits: 3 × 26 × 2) is required at the start of each month
-    to bootstrap the price history database before deal detection can activate.
+30. A one-time seed run (42 credits: 21 dests × 1 origin × 2 windows) is required at first
+    launch to bootstrap the price history database before deal detection can activate.
 
 
 API RELIABILITY
 ---------------
-30. Each SerpApi call is retried up to 3 times on failure, using exponential backoff
+31. Each SerpApi call is retried up to 3 times on failure, using exponential backoff
     starting at 10 seconds with up to 5 seconds of random jitter.
-31. A polite delay of 1.5 to 3.0 seconds is applied between consecutive API calls
+32. A polite delay of 1.5 to 3.0 seconds is applied between consecutive API calls
     to avoid rate limiting.
 
 
 DATA RETENTION
 --------------
-32. All observed prices are stored in a local SQLite database (flights.db).
-33. Historical statistics use only prices from the past 90 days.
-34. The database is never overwritten by code deployments or updates.
+33. All observed prices are stored in a local SQLite database (flights.db).
+34. Historical statistics use only prices from the past 90 days.
+35. The database is never overwritten by code deployments or updates.
 
 
 DASHBOARD
 ---------
-35. The web dashboard displays live API credit usage pulled directly from the SerpApi
+36. The web dashboard displays live API credit usage pulled directly from the SerpApi
     account endpoint, refreshed every 5 minutes. If the SerpApi endpoint is unreachable,
     the locally tracked credit count is shown as a fallback estimate.
-36. The dashboard is accessible at http://localhost:5000 when running locally, or at
+37. The dashboard is accessible at http://localhost:5000 when running locally, or at
     the server's static IP when deployed to AWS Lightsail.

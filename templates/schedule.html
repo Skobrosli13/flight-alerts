@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Schedule{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="mb-0 fw-semibold"><i class="bi bi-calendar3 me-2 text-primary"></i>Scan Schedule</h4>
+  <div class="text-muted small">
+    Slot {{ sweep_cursor + 1 }} / {{ total_slots }} &middot; 1 scan every 46 min &middot; full cycle ~32h
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover table-sm align-middle mb-0 sortable">
+        <thead class="text-muted small">
+          <tr>
+            <th class="ps-3" data-sort="num">#</th>
+            <th data-sort="text">Destination</th>
+            <th data-sort="text">Group</th>
+            <th data-sort="text">Window</th>
+            <th data-sort="text">Details</th>
+            <th data-sort="date">Est. Scan Time (ET)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in slots %}
+          <tr {% if s.is_next %}class="table-primary"{% endif %}>
+            <td class="ps-3 text-muted small">{{ s.queue_pos }}</td>
+            <td>
+              {% if s.is_next %}<i class="bi bi-arrow-right-circle-fill text-primary me-1"></i>{% endif %}
+              <span class="badge bg-secondary me-1">{{ s.destination }}</span>
+              {{ s.dest_name }}
+            </td>
+            <td class="text-muted small">{{ s.group }}</td>
+            <td>
+              {% if s.window_label == "Near-term" %}
+                <span class="badge bg-info text-dark">Near-term</span>
+              {% else %}
+                <span class="badge bg-secondary">Far-out</span>
+              {% endif %}
+            </td>
+            <td class="text-muted small">
+              {{ s.offset_weeks }}wk out &middot; {{ s.stay_nights }} nights
+            </td>
+            <td class="text-muted small" data-sort-value="{{ s.eta }}">
+              {{ s.eta | eastern }} ET
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

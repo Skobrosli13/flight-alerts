@@ -10,24 +10,24 @@
 {% if alerts %}
 <div class="card">
   <div class="table-responsive">
-    <table class="table table-hover align-middle mb-0">
+    <table class="table table-hover align-middle mb-0 sortable">
       <thead class="text-muted small">
         <tr>
-          <th class="ps-3">Route</th>
-          <th>Departure</th>
-          <th>Return</th>
-          <th>Alert Price</th>
-          <th>Hist Avg</th>
-          <th>Savings</th>
-          <th>Recipient</th>
-          <th>Sent At</th>
+          <th class="ps-3" data-sort="text">Route</th>
+          <th data-sort="date">Departure</th>
+          <th data-sort="date">Return</th>
+          <th data-sort="num">Alert Price</th>
+          <th data-sort="num">Hist Avg</th>
+          <th data-sort="num">Savings</th>
+          <th data-sort="text">Recipient</th>
+          <th data-sort="date">Sent At</th>
           <th class="pe-3"></th>
         </tr>
       </thead>
       <tbody>
         {% for a in alerts %}
         <tr>
-          <td class="ps-3">
+          <td class="ps-3" data-sort-value="{{ a.destination }}">
             <div class="d-flex align-items-center gap-1">
               <span class="badge bg-secondary font-monospace">{{ a.origin }}</span>
               <i class="bi bi-arrow-right text-muted small"></i>
@@ -37,9 +37,9 @@
           </td>
           <td class="fw-medium">{{ a.departure_date }}</td>
           <td class="text-muted">{{ a.return_date }}</td>
-          <td class="text-success fw-bold fs-6">${{ "%.0f"|format(a.alerted_price) }}</td>
-          <td class="text-muted">${{ "%.0f"|format(a.historical_avg) }}</td>
-          <td>
+          <td class="text-success fw-bold fs-6" data-sort-value="{{ a.alerted_price }}">${{ "%.0f"|format(a.alerted_price) }}</td>
+          <td class="text-muted" data-sort-value="{{ a.historical_avg }}">${{ "%.0f"|format(a.historical_avg) }}</td>
+          <td data-sort-value="{{ a.pct_below_avg }}">
             <span class="badge bg-success">
               <i class="bi bi-arrow-down me-1"></i>{{ "%.0f"|format(a.pct_below_avg) }}% off
             </span>
@@ -48,7 +48,7 @@
             </div>
           </td>
           <td class="text-muted small">{{ a.email_recipient }}</td>
-          <td class="text-muted small">{{ a.sent_at[:16].replace('T',' ') }} UTC</td>
+          <td class="text-muted small" data-sort-value="{{ a.sent_at }}">{{ a.sent_at | eastern }} ET</td>
           <td class="pe-3">
             <a href="{{ flights_url(a.origin, a.destination, a.departure_date, a.return_date) }}"
                target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">

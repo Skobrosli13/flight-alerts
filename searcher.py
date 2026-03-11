@@ -1,16 +1,13 @@
 """
-SerpApi (Google Flights) wrapper with batch rotation and rate limiting.
+SerpApi (Google Flights) wrapper with rate limiting and budget tracking.
 
-Rotation strategy:
-  - Destinations are divided into batches of DEST_PER_JOB (default 1).
-  - Each 6-hour scheduler run processes one batch × all 3 origins × 2 date windows.
-  - A persistent cursor in scheduler_state advances after each run.
-  - This keeps monthly API usage within the 1,000-credit Starter plan (~6 searches/job).
+Schedule: every 46 minutes, 1 destination × 1 window per run.
+42 total slots (21 dests × 2 windows) → ~31.3 credits/day → ~939 credits/month.
+Full cycle: 42 × 46 min = 32.2 hours.
 """
 
 import json
 import logging
-import os
 import time
 import random
 import sqlite3
@@ -19,12 +16,10 @@ from typing import Optional
 
 import config
 import database as db
-from destinations import SEARCH_PRIORITY
-from utils import dates_for_window, retry
+from utils import retry
 
 log = logging.getLogger(__name__)
 
-DEST_PER_JOB = 1          # destinations per scheduler run (3 origins × 2 windows = 6 calls)
 POLITE_DELAY = (1.5, 3.0) # seconds to sleep between API calls
 
 BLOCKED_AIRLINES = {"Spirit Airlines", "Frontier Airlines"}
@@ -90,13 +85,6 @@ def execute_search(
 
     log.debug("Searching %s→%s %s/%s", origin, destination, departure_date, return_date)
     result = _call_serpapi(params)
-
-    # DCA fallback: retry with WAS (Washington metro code) if no results
-    if origin == "DCA" and result and not _has_flights(result):
-        log.debug("DCA returned no results — retrying with WAS")
-        params["departure_id"] = "WAS"
-        result = _call_serpapi(params)
-
     return result
 
 
@@ -159,32 +147,6 @@ def extract_prices(response: dict) -> list[dict]:
             continue
 
     return results
-
-
-# ---------------------------------------------------------------------------
-# Batch rotation
-# ---------------------------------------------------------------------------
-
-def get_next_batch(conn: sqlite3.Connection) -> list[str]:
-    """
-    Return the next DEST_PER_JOB destinations from the rotation list.
-    Reads and advances the persistent cursor in scheduler_state.
-    """
-    cursor = int(db.get_state(conn, "batch_cursor", "0"))
-    total = len(SEARCH_PRIORITY)
-
-    batch = []
-    for i in range(DEST_PER_JOB):
-        batch.append(SEARCH_PRIORITY[(cursor + i) % total])
-
-    next_cursor = (cursor + DEST_PER_JOB) % total
-    db.set_state(conn, "batch_cursor", str(next_cursor))
-
-    log.info(
-        "Batch cursor %d→%d | destinations: %s",
-        cursor, next_cursor, ", ".join(batch),
-    )
-    return batch
 
 
 # ---------------------------------------------------------------------------

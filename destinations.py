@@ -8,17 +8,14 @@ even if the monthly API budget ceiling halts a cycle early.
 
 # Full human-readable names for use in email notifications
 AIRPORT_NAMES = {
+    # Origin
+    "IAD": "Washington D.C. (Dulles)",
     # Domestic Tier 1
     "LAX": "Los Angeles",
-    "SFO": "San Francisco",
     "MIA": "Miami",
-    "MCO": "Orlando",
-    "JFK": "New York (JFK)",
     "BOS": "Boston",
     "ORD": "Chicago (O'Hare)",
     "LAS": "Las Vegas",
-    "SEA": "Seattle",
-    "DEN": "Denver",
     # Caribbean & Mexico
     "CUN": "Cancun",
     "MBJ": "Montego Bay",
@@ -44,7 +41,7 @@ AIRPORT_NAMES = {
 
 DESTINATIONS = {
     "domestic_tier1": [
-        "LAX", "SFO", "MIA", "MCO", "JFK", "BOS", "ORD", "LAS", "SEA", "DEN",
+        "LAX", "MIA", "BOS", "ORD", "LAS",
     ],
     "caribbean_mexico": [
         "CUN", "MBJ", "PUJ",
@@ -76,10 +73,10 @@ SEARCH_PRIORITY: list[str] = (
 assert len(SEARCH_PRIORITY) == len(set(SEARCH_PRIORITY)), "Duplicate destinations found"
 
 DOMESTIC_DESTINATIONS: set[str] = set(DESTINATIONS["domestic_tier1"])
-EUROPE_CARIBBEAN_DESTINATIONS: set[str] = set(
+CARIBBEAN_DESTINATIONS: set[str] = set(DESTINATIONS["caribbean_mexico"])
+EUROPE_DESTINATIONS: set[str] = set(
     DESTINATIONS["europe_tier1"]
     + DESTINATIONS["europe_tier2"]
-    + DESTINATIONS["caribbean_mexico"]
 )
 MIDDLE_EAST_ASIA_DESTINATIONS: set[str] = set(
     DESTINATIONS["middle_east"]

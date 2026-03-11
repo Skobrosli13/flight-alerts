@@ -40,6 +40,11 @@
             <i class="bi bi-bell me-1"></i>Alerts
           </a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.endpoint == 'schedule' %}active{% endif %}" href="/schedule">
+            <i class="bi bi-calendar3 me-1"></i>Schedule
+          </a>
+        </li>
       </ul>
       <div id="budgetBadge" class="ms-2 text-muted small">
         <i class="bi bi-arrow-repeat spin me-1"></i>Loading...
@@ -55,6 +60,37 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 {% block scripts %}{% endblock %}
+<script>
+/* Table sorting — works on any <table class="sortable"> with th[data-sort] */
+(function () {
+  function cellVal(tr, idx) {
+    var td = tr.children[idx];
+    return td.dataset.sortValue !== undefined
+      ? td.dataset.sortValue
+      : (td.innerText || td.textContent).trim();
+  }
+  function cmp(a, b, idx, asc, type) {
+    var v1 = cellVal(asc ? a : b, idx), v2 = cellVal(asc ? b : a, idx);
+    if (type === 'num')  return (parseFloat(v1.replace(/[^0-9.\-]/g,''))||0) - (parseFloat(v2.replace(/[^0-9.\-]/g,''))||0);
+    if (type === 'date') return (new Date(v1)||0) - (new Date(v2)||0);
+    return v1.localeCompare(v2);
+  }
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('table.sortable thead th[data-sort]').forEach(function (th) {
+      th.addEventListener('click', function () {
+        var table = th.closest('table'), tbody = table.querySelector('tbody');
+        var idx = Array.from(th.parentNode.children).indexOf(th), type = th.dataset.sort;
+        var wasAsc = th.classList.contains('sort-asc');
+        th.parentNode.querySelectorAll('th').forEach(function (t) { t.classList.remove('sort-asc','sort-desc'); });
+        th.classList.add(!wasAsc ? 'sort-asc' : 'sort-desc');
+        Array.from(tbody.querySelectorAll('tr'))
+          .sort(function (a, b) { return cmp(a, b, idx, !wasAsc, type); })
+          .forEach(function (tr) { tbody.appendChild(tr); });
+      });
+    });
+  });
+})();
+</script>
 <script>
   fetch('/api/status')
     .then(r => r.json())

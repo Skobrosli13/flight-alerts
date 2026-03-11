@@ -11,8 +11,11 @@ import os
 import sys
 import threading
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from urllib.parse import quote as url_quote
+from zoneinfo import ZoneInfo
+
+_EASTERN = ZoneInfo("America/New_York")
 
 from flask import Flask, render_template, jsonify, request
 
@@ -29,7 +32,10 @@ app.secret_key = os.urandom(24)
 try:
     import config
     import database as db
-    from destinations import DESTINATIONS, AIRPORT_NAMES, SEARCH_PRIORITY
+    from destinations import (
+        DESTINATIONS, AIRPORT_NAMES, SEARCH_PRIORITY,
+        DOMESTIC_DESTINATIONS, CARIBBEAN_DESTINATIONS, EUROPE_DESTINATIONS,
+    )
     SETUP_OK = True
     SETUP_ERROR = None
 except EnvironmentError as e:
@@ -73,6 +79,20 @@ def get_serpapi_account() -> dict | None:
     return _serpapi_cache["data"]
 
 
+@app.template_filter("eastern")
+def to_eastern(dt_str: str) -> str:
+    """Convert a UTC ISO datetime string to Eastern time (ET/EDT) for display."""
+    if not dt_str:
+        return ""
+    try:
+        dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(_EASTERN).strftime("%Y-%m-%d %H:%M")
+    except Exception:
+        return dt_str[:16].replace("T", " ")
+
+
 @app.template_global()
 def flights_url(origin: str, destination: str, depart_date: str, return_date: str) -> str:
     query = f"Flights from {origin} to {destination} {depart_date} {return_date}"
@@ -108,8 +128,10 @@ def dashboard():
             "SELECT COUNT(*) AS cnt FROM price_history"
         ).fetchone()["cnt"])
 
-        batch_cursor  = int(db.get_state(conn, "batch_cursor", "0"))
-        next_dest     = SEARCH_PRIORITY[batch_cursor % len(SEARCH_PRIORITY)]
+        sweep_cursor    = int(db.get_state(conn, "sweep_cursor", "0"))
+        next_dest_idx   = sweep_cursor % len(SEARCH_PRIORITY)
+        next_window_idx = sweep_cursor // len(SEARCH_PRIORITY)
+        next_dest       = SEARCH_PRIORITY[next_dest_idx]
 
     finally:
         conn.close()
@@ -142,9 +164,11 @@ def dashboard():
         dests_scanned=dests_scanned,
         total_destinations=len(SEARCH_PRIORITY),
         origin_usage=usage["by_origin"],
+        sweep_cursor=sweep_cursor,
+        total_slots=len(SEARCH_PRIORITY) * 2,
         next_destination=next_dest,
         next_dest_name=AIRPORT_NAMES.get(next_dest, next_dest),
-        batch_cursor=batch_cursor,
+        next_window_label="Near-term" if next_window_idx == 0 else "Far-out",
     )
 
 
@@ -260,6 +284,17 @@ def api_status():
         plan   = None
         source = "local"
 
+    # Compute next scan time: last_scan + 46 min (scheduler interval)
+    next_scan_at = None
+    if last_scan:
+        try:
+            ls_dt = datetime.fromisoformat(last_scan.replace("Z", "+00:00"))
+            if ls_dt.tzinfo is None:
+                ls_dt = ls_dt.replace(tzinfo=timezone.utc)
+            next_scan_at = (ls_dt + timedelta(minutes=46)).isoformat()
+        except Exception:
+            pass
+
     return jsonify({
         "monthly_usage": used,
         "budget":        budget,
@@ -268,8 +303,81 @@ def api_status():
         "plan":          plan,
         "source":        source,
         "last_scan":     last_scan,
+        "next_scan_at":  next_scan_at,
         "timestamp":     datetime.now().isoformat(),
     })
+
+
+@app.route("/schedule")
+@require_setup
+def schedule():
+    TOTAL_SLOTS = len(SEARCH_PRIORITY) * 2
+
+    conn = db.get_connection()
+    try:
+        sweep_cursor = int(db.get_state(conn, "sweep_cursor", "0"))
+        last_scan    = db.get_last_scan_time(conn)
+    finally:
+        conn.close()
+
+    now = datetime.now(timezone.utc)
+    if last_scan:
+        try:
+            ls_dt = datetime.fromisoformat(last_scan.replace("Z", "+00:00"))
+            if ls_dt.tzinfo is None:
+                ls_dt = ls_dt.replace(tzinfo=timezone.utc)
+            next_fire = ls_dt + timedelta(minutes=46)
+            if next_fire < now:
+                next_fire = now
+        except Exception:
+            next_fire = now
+    else:
+        next_fire = now
+
+    def _window_info(dest, window_idx):
+        if dest in DOMESTIC_DESTINATIONS:
+            windows = config.DOMESTIC_DATE_WINDOWS
+        elif dest in CARIBBEAN_DESTINATIONS:
+            windows = config.CARIBBEAN_DATE_WINDOWS
+        elif dest in EUROPE_DESTINATIONS:
+            windows = config.EUROPE_DATE_WINDOWS
+        else:
+            windows = config.MIDDLE_EAST_ASIA_DATE_WINDOWS
+        return windows[window_idx]
+
+    def _group(dest):
+        for group, codes in DESTINATIONS.items():
+            if dest in codes:
+                return GROUP_LABELS.get(group, group)
+        return ""
+
+    slots = []
+    for i in range(TOTAL_SLOTS):
+        slot_num   = (sweep_cursor + i) % TOTAL_SLOTS
+        dest_idx   = slot_num % len(SEARCH_PRIORITY)
+        window_idx = slot_num // len(SEARCH_PRIORITY)
+        dest       = SEARCH_PRIORITY[dest_idx]
+        win        = _window_info(dest, window_idx)
+        eta        = next_fire + timedelta(minutes=46 * i)
+        slots.append({
+            "queue_pos":    i + 1,
+            "slot_num":     slot_num + 1,
+            "destination":  dest,
+            "dest_name":    AIRPORT_NAMES.get(dest, dest),
+            "group":        _group(dest),
+            "window_label": "Near-term" if window_idx == 0 else "Far-out",
+            "offset_weeks": win["offset_weeks"],
+            "stay_nights":  win["stay_nights"],
+            "eta":          eta.isoformat(),
+            "is_next":      i == 0,
+        })
+
+    return render_template(
+        "schedule.html",
+        slots=slots,
+        sweep_cursor=sweep_cursor,
+        total_slots=TOTAL_SLOTS,
+    )
 
 
 @app.route("/api/trigger", methods=["POST"])
