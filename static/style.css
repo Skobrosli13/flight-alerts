@@ -216,6 +216,18 @@ pre {
   to   { transform: rotate(360deg); }
 }
 
+/* Highlighted table row (next scan) */
+tr.table-primary,
+tr.table-primary td,
+tr.table-primary .text-muted {
+  color: #0d1117 !important;
+}
+
+tr.table-primary .badge.bg-secondary {
+  background-color: #0d1117 !important;
+  color: #e6edf3 !important;
+}
+
 /* Sortable table headers */
 th[data-sort] {
   cursor: pointer;

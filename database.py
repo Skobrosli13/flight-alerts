@@ -317,12 +317,23 @@ def get_last_scan_time(conn: sqlite3.Connection) -> Optional[str]:
     return row["last"] if row else None
 
 
-def get_destinations_scanned_this_month(conn: sqlite3.Connection) -> int:
+def get_destinations_scanned_this_month(
+    conn: sqlite3.Connection,
+    active_destinations: list[str] | None = None,
+) -> int:
     month_start = datetime.now(timezone.utc).replace(
         day=1, hour=0, minute=0, second=0, microsecond=0
     ).isoformat()
-    row = conn.execute(
-        "SELECT COUNT(DISTINCT destination) AS cnt FROM api_usage WHERE called_at >= ?",
-        (month_start,),
-    ).fetchone()
+    if active_destinations:
+        placeholders = ",".join("?" * len(active_destinations))
+        row = conn.execute(
+            f"SELECT COUNT(DISTINCT destination) AS cnt FROM api_usage "
+            f"WHERE called_at >= ? AND destination IN ({placeholders})",
+            [month_start] + list(active_destinations),
+        ).fetchone()
+    else:
+        row = conn.execute(
+            "SELECT COUNT(DISTINCT destination) AS cnt FROM api_usage WHERE called_at >= ?",
+            (month_start,),
+        ).fetchone()
     return int(row["cnt"]) if row else 0

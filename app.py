@@ -122,7 +122,7 @@ def dashboard():
         monthly_deals  = db.get_monthly_deal_count(conn)
         recent_alerts  = db.get_recent_alerts(conn, limit=5)
         last_scan      = db.get_last_scan_time(conn)
-        dests_scanned  = db.get_destinations_scanned_this_month(conn)
+        dests_scanned  = db.get_destinations_scanned_this_month(conn, SEARCH_PRIORITY)
 
         total_obs = int(conn.execute(
             "SELECT COUNT(*) AS cnt FROM price_history"
